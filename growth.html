@@ -1,0 +1,689 @@
+<title>CTRL — Growth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #060a0c; --panel: #0b1417; --panel-raised: #101c20; --panel-inset: #081114;
+    --line: #1c2c30; --line-soft: #132024;
+    --cyan: #3ee8de; --cyan-dim: #1f7a76; --cyan-glow: rgba(62,232,222,.32); --cyan-glow-soft: rgba(62,232,222,.14);
+    --ink: #dcefee; --ink-dim: #82999c; --ink-faint: #47585b;
+    --good: #38d97a; --good-glow: rgba(56,217,122,.16);
+    --warn: #f0a83c; --warn-glow: rgba(240,168,60,.16);
+    --crit: #ff5470; --crit-glow: rgba(255,84,112,.16);
+    --font-display: 'Orbitron', 'Arial Narrow', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    --font-body: 'Outfit', 'Segoe UI', sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ background: var(--void); color: var(--ink); font-family: var(--font-body); overflow:hidden; }
+  ::selection{ background: var(--cyan-glow); color: var(--ink); }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:5px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--cyan-dim); }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+
+  .shell{ display:flex; height:100vh; width:100%; position:relative;
+    background:
+      radial-gradient(760px 420px at 18% -8%, var(--cyan-glow-soft), transparent 62%),
+      radial-gradient(600px 380px at 96% 8%, rgba(62,232,222,.06), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      repeating-linear-gradient(90deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      var(--void); }
+
+  .rail{ width:62px; flex:0 0 62px; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:16px 0 18px; background: var(--panel); border-right:1px solid var(--line); position:relative; z-index:5; }
+  .rail-top, .rail-mid, .rail-bottom{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rail-mid{ gap:4px; }
+  .brand{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cyan-dim); border-radius:9px; color: var(--cyan); box-shadow: 0 0 14px var(--cyan-glow-soft); margin-bottom:6px; }
+  .brand svg{ width:18px; height:18px; }
+  .rail-divider{ width:26px; height:1px; background:var(--line); margin:10px 0; }
+  .nav-btn{ position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; color: var(--ink-faint); transition: color .15s ease, background-color .15s ease; }
+  .nav-btn svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .nav-btn:hover, .nav-btn:focus-visible{ color: var(--ink); background: var(--panel-raised); outline:none; }
+  .nav-btn.active{ color: var(--void); background: var(--cyan); box-shadow: 0 0 16px var(--cyan-glow); }
+  .nav-btn.active svg{ stroke: var(--void); }
+  .nav-btn::after{ content: attr(data-label); position:absolute; left:52px; top:50%; transform: translateY(-50%) translateX(-4px); background: var(--panel-raised); border:1px solid var(--line); color: var(--ink); font-size:11.5px; font-weight:500; letter-spacing:.02em; padding:5px 9px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity .12s ease, transform .12s ease; z-index:20; }
+  .nav-btn:hover::after, .nav-btn:focus-visible::after{ opacity:1; transform: translateY(-50%) translateX(0); }
+  .avatar{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: var(--panel-inset); border:1px solid var(--line); font-family: var(--font-mono); font-size:11px; color: var(--cyan); }
+
+  .main{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding: 26px 30px 56px; position:relative; z-index:2; }
+  .topbar{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px; }
+  .page-label{ font-family: var(--font-display); font-size:13px; font-weight:700; letter-spacing:.16em; color: var(--ink); text-transform:uppercase; }
+  .page-label span{ color: var(--cyan); }
+  .topbar-meta{ display:flex; align-items:center; gap:18px; font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .status-chip{ display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; background: var(--panel); }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; }
+  .dot.good{ background: var(--good); box-shadow:0 0 6px var(--good); }
+  .dot.pulse{ animation: pulse 2.2s ease-in-out infinite; }
+
+  .section{ margin-bottom:32px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color: var(--ink); }
+  .section-count{ font-family: var(--font-mono); font-size:11.5px; color: var(--ink-faint); }
+  .badge{ font-family: var(--font-mono); font-size:11px; padding:2px 7px; border-radius:5px; font-weight:500; }
+  .badge.good{ color: var(--good); background: var(--good-glow); }
+
+  /* Goal banner */
+  .goal-banner{ display:flex; align-items:center; gap:20px; background: linear-gradient(180deg, var(--panel-raised), var(--panel)); border:1px solid var(--cyan-dim); border-radius:12px; padding:16px 22px; margin-bottom:26px; box-shadow: 0 0 24px var(--cyan-glow-soft); flex-wrap:wrap; }
+  .goal-label{ font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color: var(--ink-dim); flex:0 0 auto; }
+  .goal-value{ font-family: var(--font-display); font-size:20px; font-weight:700; color: var(--ink); flex:0 0 auto; font-variant-numeric: tabular-nums; }
+  .goal-value small{ font-family: var(--font-body); font-size:13px; font-weight:500; color: var(--ink-dim); }
+  .goal-track{ flex:1 1 200px; height:8px; border-radius:5px; background: var(--panel-inset); overflow:hidden; min-width:160px; }
+  .goal-fill{ height:100%; border-radius:5px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan-glow); }
+  .goal-pct{ font-family: var(--font-mono); font-size:13px; color: var(--cyan); flex:0 0 auto; }
+
+  /* KPI tiles */
+  .kpi-row{ display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+  .kpi-tile{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px 18px; display:flex; flex-direction:column; gap:7px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .kpi-tile:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); }
+  .kpi-label{ font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color: var(--ink-dim); }
+  .kpi-value{ font-family: var(--font-display); font-size:25px; font-weight:700; color: var(--ink); font-variant-numeric: tabular-nums; line-height:1; }
+  .kpi-sub{ font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); }
+  .kpi-sub.up{ color: var(--good); }
+
+  /* Funnel */
+  .funnel{ display:flex; align-items:stretch; }
+  .funnel-stage{ flex:1; background: var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 8px; text-align:center; display:flex; flex-direction:column; gap:5px; transition: border-color .18s ease; }
+  .funnel-stage:hover{ border-color: var(--cyan-dim); }
+  .funnel-stage-label{ font-size:10px; letter-spacing:.05em; text-transform:uppercase; color: var(--ink-dim); }
+  .funnel-stage-value{ font-family: var(--font-display); font-size:22px; font-weight:700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .funnel-connector{ flex:0 0 40px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color: var(--ink-faint); }
+  .funnel-connector svg{ width:13px; height:13px; }
+  .funnel-connector span{ font-family: var(--font-mono); font-size:10px; color: var(--cyan); white-space:nowrap; }
+
+  /* Ads cards */
+  .ads-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
+  .ads-card{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:18px; display:flex; flex-direction:column; gap:16px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .ads-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); }
+  .ads-head{ display:flex; align-items:center; justify-content:space-between; }
+  .ads-name{ display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color: var(--ink); }
+  .ads-icon{ width:32px; height:32px; border-radius:8px; background: var(--panel-inset); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color: var(--cyan); flex:0 0 auto; }
+  .ads-icon svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.6; }
+  .ads-spend{ text-align:right; }
+  .ads-spend-value{ font-family: var(--font-display); font-size:22px; font-weight:700; color: var(--ink); }
+  .ads-spend-label{ font-family: var(--font-mono); font-size:10px; color: var(--ink-faint); text-transform:uppercase; }
+  .ads-stats{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px 10px; padding-top:14px; border-top:1px solid var(--line-soft); }
+  .ads-stat-label{ font-size:10px; color: var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+  .ads-stat-value{ font-family: var(--font-mono); font-size:13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* Revenue attribution */
+  .rev-list{ display:flex; flex-direction:column; gap:13px; background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:18px 20px; }
+  .rev-row{ display:flex; align-items:center; gap:14px; }
+  .rev-label{ width:140px; flex:0 0 auto; font-size:12.5px; color: var(--ink); font-weight:600; }
+  .rev-track{ flex:1 1 auto; height:20px; background: var(--panel-inset); border:1px solid var(--line-soft); border-radius:5px; overflow:hidden; }
+  .rev-fill{ height:100%; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan)); box-shadow: 0 0 8px var(--cyan-glow); }
+  .rev-value{ width:80px; flex:0 0 auto; text-align:right; font-family: var(--font-mono); font-size:13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .rev-meta{ width:100px; flex:0 0 auto; text-align:right; font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); }
+
+  .example-tag{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color: var(--warn); background: var(--warn-glow); border:1px solid rgba(240,168,60,.3); border-radius:20px; padding:2px 9px; }
+
+  /* Pace strip */
+  .pace-strip{ display:grid; grid-template-columns: repeat(4, 1fr); border:1px solid var(--line); border-radius:11px; background: var(--panel); overflow:hidden; margin-bottom:26px; }
+  .pace-cell{ padding:13px 18px; border-right:1px solid var(--line-soft); display:flex; flex-direction:column; gap:4px; }
+  .pace-cell:last-child{ border-right:none; }
+  .pace-label{ font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color: var(--ink-faint); }
+  .pace-value{ font-family: var(--font-mono); font-size:15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pace-value.behind{ color: var(--crit); }
+  .pace-value.warn{ color: var(--warn); }
+
+  /* Low ticket card */
+  .lowticket-card{ display:flex; align-items:center; gap:22px; background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px 20px; flex-wrap:wrap; }
+  .lowticket-value{ font-family: var(--font-display); font-size:24px; font-weight:700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .lowticket-label{ font-size:11px; color: var(--ink-dim); }
+  .lowticket-detail{ font-family: var(--font-mono); font-size:11.5px; color: var(--ink-faint); }
+
+  .badge{ font-family: var(--font-mono); font-size:11px; padding:2px 7px; border-radius:5px; font-weight:500; }
+  .badge.live{ color: var(--good); background: var(--good-glow); border:1px solid rgba(56,217,122,.35); letter-spacing:.03em; cursor:help; }
+  .refresh-btn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--cyan-dim); border-radius:7px; padding:5px 12px; color: var(--cyan); background:none; font-family: var(--font-mono); font-size:11px; letter-spacing:.02em; transition: background-color .15s ease, box-shadow .15s ease; }
+  .refresh-btn:hover:not(:disabled), .refresh-btn:focus-visible{ background: var(--cyan-glow-soft); box-shadow: 0 0 12px var(--cyan-glow-soft); outline:none; }
+  .refresh-btn:disabled{ opacity:.55; cursor:default; }
+  .spin{ display:inline-block; }
+  .spin.spinning{ animation: spin .8s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .loading-dim{ opacity:.4; filter: saturate(.55); pointer-events:none; transition: opacity .2s ease, filter .2s ease; }
+  .toast{ position:fixed; bottom:22px; left:50%; transform: translateX(-50%) translateY(12px); background: var(--panel-raised); border:1px solid var(--cyan-dim); color: var(--ink); font-family: var(--font-mono); font-size:12px; padding:9px 16px; border-radius:8px; box-shadow: 0 0 20px var(--cyan-glow-soft); opacity:0; pointer-events:none; transition: opacity .18s ease, transform .18s ease; z-index:50; max-width:340px; text-align:center; }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  .funnel-nav{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .funnel-nav-pill{ display:flex; align-items:center; gap:2px; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .funnel-nav-arrow{ display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:none; border:none; color: var(--ink-dim); cursor:pointer; font-family: var(--font-mono); font-size:13px; transition: background-color .15s ease, color .15s ease; }
+  .funnel-nav-arrow:hover:not(:disabled){ background: var(--cyan-glow-soft); color: var(--cyan); }
+  .funnel-nav-arrow:disabled{ opacity:.3; cursor:default; }
+  .funnel-nav-select{ appearance:none; -webkit-appearance:none; background: var(--panel); border:none; border-left:1px solid var(--line); border-right:1px solid var(--line); color: var(--warn); font-family: var(--font-mono); font-size:11px; font-weight:600; letter-spacing:.04em; padding:5px 22px 5px 10px; cursor:pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a8b4c2' stroke-width='1.4'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position: right 8px center; }
+  .funnel-nav-range{ font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); }
+
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .reveal{ animation: fadeUp .55s cubic-bezier(.16,.8,.4,1) both; }
+  @media (prefers-reduced-motion: reduce){ .reveal{ animation:none; opacity:1; transform:none; } .dot.pulse{ animation:none; } }
+
+  @media (max-width: 1180px){ .kpi-row{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 860px){ .funnel{ flex-direction:column; } .funnel-connector{ flex-direction:row; } .ads-grid{ grid-template-columns: 1fr; } .rev-label{ width:110px; } .rev-value{ width:70px; } .rev-meta{ display:none; } }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="rail-top">
+      <a class="brand" href="ai-dashboard.html" title="CTRL — Home">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none"/><line x1="10" y1="1.4" x2="10" y2="4.4" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="15.6" x2="10" y2="18.6" stroke="currentColor" stroke-width="1.4"/><line x1="1.4" y1="10" x2="4.4" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="15.6" y1="10" x2="18.6" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>
+      </a>
+    </div>
+    <div class="rail-mid">
+      <a class="nav-btn" data-label="Overview" aria-label="Overview" href="ai-dashboard.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Research" aria-label="Research" href="research.html">
+        <svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Pipeline" aria-label="Pipeline" href="pipeline.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="4" width="4" height="13" rx="1"/><rect x="8" y="4" width="4" height="8" rx="1"/><rect x="14" y="4" width="4" height="11" rx="1"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Performance" aria-label="Performance" href="performance.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="11" width="3.4" height="7" rx=".8"/><rect x="8.3" y="6" width="3.4" height="12" rx=".8"/><rect x="14.6" y="2" width="3.4" height="16" rx=".8"/></svg>
+      </a>
+      <a class="nav-btn active" data-label="Growth" aria-label="Growth" aria-current="page" href="growth.html">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4.2"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Agents" aria-label="Agents" href="agents.html">
+        <svg viewBox="0 0 20 20"><rect x="4" y="6.4" width="12" height="9.6" rx="2"/><circle cx="7.8" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.2" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><line x1="10" y1="6.4" x2="10" y2="3"/><circle cx="10" cy="2" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Clients" aria-label="Clients" href="clients.html">
+        <svg viewBox="0 0 20 20"><rect x="2.5" y="7.4" width="15" height="9.6" rx="1.6"/><path d="M7.2 7.4V5.6a2 2 0 0 1 2-2h1.6a2 2 0 0 1 2 2v1.8"/><line x1="2.5" y1="11.6" x2="17.5" y2="11.6"/></svg>
+      </a>
+    </div>
+    <div class="rail-bottom">
+      <div class="rail-divider"></div>
+      <div class="avatar" title="contact@blueprintmarketing.info">CB</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar reveal">
+      <div class="page-label">CTRL <span>/ GROWTH</span></div>
+      <div class="topbar-meta">
+        <span class="status-chip"><span class="dot good pulse"></span><span id="dayLabel">LOADING…</span></span>
+        <span id="daysLeftLabel"></span>
+        <span class="badge live" id="financeLiveBadge" title="Not yet connected — click Refresh Finance Data" style="display:none;">● LIVE</span>
+        <button class="refresh-btn" id="financeRefreshBtn"><span class="spin" id="financeRefreshIcon">↻</span> Refresh Finance Data</button>
+      </div>
+    </div>
+
+    <div class="goal-banner reveal loading-dim" style="animation-delay:.04s" id="goalBanner">
+      <div class="goal-label">Monthly Collection Goal</div>
+      <div class="goal-value" id="goalValue">— <small>/ —</small></div>
+      <div class="goal-track"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+      <div class="goal-pct" id="goalPct">—</div>
+    </div>
+
+    <div class="pace-strip reveal loading-dim" style="animation-delay:.05s" id="paceStrip">
+      <div class="pace-cell"><div class="pace-label">Collected Today</div><div class="pace-value" id="paceToday">— <span style="color:var(--ink-faint); font-size:12px;">/ —</span></div></div>
+      <div class="pace-cell"><div class="pace-label">Month Pace Says</div><div class="pace-value" id="pacePace">—</div></div>
+      <div class="pace-cell"><div class="pace-label">Behind Pace</div><div class="pace-value" id="paceBehind">—</div></div>
+      <div class="pace-cell"><div class="pace-label">Need / Day Now</div><div class="pace-value" id="paceNeed">—</div></div>
+    </div>
+
+    <div class="section">
+      <div class="kpi-row reveal loading-dim" style="animation-delay:.06s" id="kpiRow">
+        <div class="kpi-tile">
+          <div class="kpi-label">Collected This Month</div>
+          <div class="kpi-value" id="kpiMonthValue">—</div>
+          <div class="kpi-sub" id="kpiMonthSub">loading…</div>
+        </div>
+        <div class="kpi-tile">
+          <div class="kpi-label">Collected Last Month</div>
+          <div class="kpi-value" id="kpiLastMonthValue">—</div>
+          <div class="kpi-sub">August, closed</div>
+        </div>
+        <div class="kpi-tile">
+          <div class="kpi-label" id="kpiBookedLabel">Booked Calls</div>
+          <div class="kpi-value" id="kpiBookedValue">—</div>
+          <div class="kpi-sub" id="kpiBookedSub">loading…</div>
+        </div>
+        <div class="kpi-tile">
+          <div class="kpi-label" id="kpiCloseRateLabel">Close Rate</div>
+          <div class="kpi-value" id="kpiCloseRateValue">—</div>
+          <div class="kpi-sub" id="kpiCloseRateSub">loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.08s">
+        <div class="section-title">Booking Funnel</div>
+        <div class="funnel-nav">
+          <span class="badge live" id="bookingLiveBadge" title="Not yet connected — click Refresh" style="display:none;">● LIVE</span>
+          <button class="refresh-btn" id="bookingRefreshBtn"><span class="spin" id="bookingRefreshIcon">↻</span> Refresh</button>
+          <div class="funnel-nav-pill">
+            <button class="funnel-nav-arrow" id="bookingPrevBtn" title="Previous period">‹</button>
+            <select class="funnel-nav-select" id="bookingRangeSelect">
+              <optgroup label="Week">
+                <option value="w:0">THIS WEEK</option>
+                <option value="w:-1">LAST WEEK</option>
+              </optgroup>
+              <optgroup label="Month" id="bookingMonthGroup"></optgroup>
+              <option value="custom" disabled hidden>CUSTOM</option>
+            </select>
+            <button class="funnel-nav-arrow" id="bookingNextBtn" title="Next period">›</button>
+          </div>
+          <span class="funnel-nav-range" id="bookingRangeLabel">2026-08-01 to 2026-08-31</span>
+        </div>
+      </div>
+      <div class="funnel reveal loading-dim" id="funnelBlock" style="animation-delay:.10s">
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Booked</div>
+          <div class="funnel-stage-value" id="funnelBookedValue">—</div>
+        </div>
+        <div class="funnel-connector"><svg viewBox="0 0 10 10"><path d="M2 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="funnelShowRate">—</span></div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Taken (Show Rate)</div>
+          <div class="funnel-stage-value" id="funnelTakenValue">—</div>
+        </div>
+        <div class="funnel-connector"><svg viewBox="0 0 10 10"><path d="M2 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="funnelCloseRate">—</span></div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Closed</div>
+          <div class="funnel-stage-value" id="funnelClosedValue">—</div>
+        </div>
+      </div>
+      <div class="lowticket-card reveal" style="animation-delay:.13s">
+        <div><div class="lowticket-value" id="lowTicketValue">—</div><div class="lowticket-label">Low-ticket units</div></div>
+        <div class="lowticket-detail">$97 / $297 tiers · $297 pays 3x · 20% commission on the $297 tier</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.14s">
+        <div class="section-title">Cash Collected</div>
+        <div class="funnel-nav">
+          <span class="badge live" id="cashLiveBadge" title="Not yet connected — click Refresh" style="display:none;">● LIVE</span>
+          <button class="refresh-btn" id="cashRefreshBtn"><span class="spin" id="cashRefreshIcon">↻</span> Refresh</button>
+          <div class="funnel-nav-pill">
+            <button class="funnel-nav-arrow" id="cashPrevBtn" title="Previous period">‹</button>
+            <select class="funnel-nav-select" id="cashRangeSelect">
+              <optgroup label="Week">
+                <option value="w:0">THIS WEEK</option>
+                <option value="w:-1">LAST WEEK</option>
+              </optgroup>
+              <optgroup label="Month" id="cashMonthGroup"></optgroup>
+              <option value="custom" disabled hidden>CUSTOM</option>
+            </select>
+            <button class="funnel-nav-arrow" id="cashNextBtn" title="Next period">›</button>
+          </div>
+          <span class="funnel-nav-range" id="cashRangeLabel">2026-08-01 to 2026-08-31</span>
+        </div>
+      </div>
+      <div class="kpi-row reveal loading-dim" id="cashKpiRow" style="animation-delay:.15s">
+        <div class="kpi-tile">
+          <div class="kpi-label" id="cashCollectedLabel">Cash Collected</div>
+          <div class="kpi-value" id="cashCollectedValue">—</div>
+          <div class="kpi-sub" id="cashCollectedSub">loading…</div>
+        </div>
+        <div class="kpi-tile">
+          <div class="kpi-label">Recurring Monthly Revenue (MRR)</div>
+          <div class="kpi-value" id="mrrValue">—</div>
+          <div class="kpi-sub" id="mrrSub">as of now · active subscriptions</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.16s">
+        <div class="section-title">Paid Traffic <span class="example-tag">Example</span></div>
+        <div class="section-count">Not connected — illustrative only</div>
+      </div>
+      <div class="ads-grid">
+        <div class="ads-card reveal" style="animation-delay:.16s">
+          <div class="ads-head">
+            <div class="ads-name"><div class="ads-icon"><svg viewBox="0 0 20 20"><path d="M2 8v4h2.5l9 3.5V4.5l-9 3.5H2z"/><path d="M15.5 8.2a2.2 2.2 0 0 1 0 3.6"/></svg></div>Meta Ads</div>
+            <div class="ads-spend"><div class="ads-spend-value">$4,850</div><div class="ads-spend-label">spend</div></div>
+          </div>
+          <div class="ads-stats">
+            <div><div class="ads-stat-label">Leads</div><div class="ads-stat-value">96</div></div>
+            <div><div class="ads-stat-label">CPL</div><div class="ads-stat-value">$50.52</div></div>
+            <div><div class="ads-stat-label">ROAS</div><div class="ads-stat-value" style="color:var(--good)">3.8x</div></div>
+            <div><div class="ads-stat-label">Booked Calls</div><div class="ads-stat-value">34</div></div>
+            <div><div class="ads-stat-label">Cost / Booked</div><div class="ads-stat-value">$142.65</div></div>
+            <div><div class="ads-stat-label">Revenue</div><div class="ads-stat-value">$71.4K</div></div>
+          </div>
+        </div>
+        <div class="ads-card reveal" style="animation-delay:.19s">
+          <div class="ads-head">
+            <div class="ads-name"><div class="ads-icon"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6"/><line x1="10" y1="2" x2="10" y2="5"/><line x1="10" y1="15" x2="10" y2="18"/><line x1="2" y1="10" x2="5" y2="10"/><line x1="15" y1="10" x2="18" y2="10"/><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none"/></svg></div>Google Ads</div>
+            <div class="ads-spend"><div class="ads-spend-value">$2,100</div><div class="ads-spend-label">spend</div></div>
+          </div>
+          <div class="ads-stats">
+            <div><div class="ads-stat-label">Leads</div><div class="ads-stat-value">31</div></div>
+            <div><div class="ads-stat-label">CPL</div><div class="ads-stat-value">$67.74</div></div>
+            <div><div class="ads-stat-label">ROAS</div><div class="ads-stat-value" style="color:var(--good)">2.6x</div></div>
+            <div><div class="ads-stat-label">Booked Calls</div><div class="ads-stat-value">12</div></div>
+            <div><div class="ads-stat-label">Cost / Booked</div><div class="ads-stat-value">$175.00</div></div>
+            <div><div class="ads-stat-label">Revenue</div><div class="ads-stat-value">$24.8K</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.22s">
+        <div class="section-title">Revenue by Channel <span class="example-tag">Example</span></div>
+        <div class="section-count">Illustrative — real channel attribution not yet available</div>
+      </div>
+      <div class="rev-list reveal" style="animation-delay:.24s">
+        <div class="rev-row">
+          <div class="rev-label">Meta Ads</div>
+          <div class="rev-track"><div class="rev-fill" style="width:100%"></div></div>
+          <div class="rev-value">$71.4K</div>
+          <div class="rev-meta">21 closed</div>
+        </div>
+        <div class="rev-row">
+          <div class="rev-label">Cold Calling</div>
+          <div class="rev-track"><div class="rev-fill" style="width:81.2%"></div></div>
+          <div class="rev-value">$58.0K</div>
+          <div class="rev-meta">19 closed</div>
+        </div>
+        <div class="rev-row">
+          <div class="rev-label">Google Ads</div>
+          <div class="rev-track"><div class="rev-fill" style="width:34.7%"></div></div>
+          <div class="rev-value">$24.8K</div>
+          <div class="rev-meta">8 closed</div>
+        </div>
+        <div class="rev-row">
+          <div class="rev-label">Organic / Content</div>
+          <div class="rev-track"><div class="rev-fill" style="width:26.9%"></div></div>
+          <div class="rev-value">$19.2K</div>
+          <div class="rev-meta">6 closed</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3400);
+  }
+
+  function fmtMoney(n){
+    var sign = n < 0 ? '-' : '';
+    n = Math.abs(n);
+    if(n >= 1000) return sign + '$' + (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
+    return sign + '$' + Math.round(n).toLocaleString();
+  }
+  function fmtMoneyFull(n){
+    return '$' + Math.round(n).toLocaleString();
+  }
+
+  function setFinanceLoading(isLoading){
+    var btn = document.getElementById('financeRefreshBtn');
+    var icon = document.getElementById('financeRefreshIcon');
+    btn.disabled = isLoading;
+    icon.classList.toggle('spinning', isLoading);
+    ['goalBanner','paceStrip','kpiRow'].forEach(function(id){
+      document.getElementById(id).classList.toggle('loading-dim', isLoading);
+    });
+  }
+
+  function applyFinanceData(data){
+    var goalPct = Math.min((data.month.collected / data.month.goal) * 100, 100);
+    document.getElementById('goalValue').innerHTML = fmtMoney(data.month.collected) + ' <small>/ ' + fmtMoney(data.month.goal) + '</small>';
+    document.getElementById('goalFill').style.width = goalPct.toFixed(1) + '%';
+    document.getElementById('goalPct').textContent = goalPct.toFixed(1) + '%';
+
+    document.getElementById('paceToday').innerHTML = fmtMoneyFull(data.today.collected) + ' <span style="color:var(--ink-faint); font-size:12px;">/ ' + fmtMoneyFull(data.today.target) + '</span>';
+    document.getElementById('pacePace').textContent = fmtMoneyFull(data.month.pace);
+    document.getElementById('paceBehind').textContent = (data.month.behind >= 0 ? '' : '+') + fmtMoneyFull(Math.abs(data.month.behind));
+    document.getElementById('paceBehind').className = 'pace-value ' + (data.month.behind >= 0 ? 'behind' : '');
+    document.getElementById('paceNeed').textContent = fmtMoneyFull(Math.max(data.month.needPerDay, 0));
+
+    document.getElementById('kpiMonthValue').textContent = fmtMoney(data.month.collected);
+    document.getElementById('kpiMonthSub').textContent = 'day ' + data.month.dayOfMonth + ' of ' + data.month.daysInMonth + ' · goal ' + fmtMoney(data.month.goal);
+    document.getElementById('kpiLastMonthValue').textContent = fmtMoney(data.lastMonth.collected);
+
+    document.getElementById('dayLabel').textContent = 'DAY ' + data.month.dayOfMonth + ' OF ' + data.month.daysInMonth;
+    document.getElementById('daysLeftLabel').textContent = data.month.daysLeft + ' DAYS LEFT THIS MONTH';
+
+    document.getElementById('lowTicketValue').textContent = data.lowTicket.count97 + data.lowTicket.count297 + ' units';
+
+    var badge = document.getElementById('financeLiveBadge');
+    var syncTime = new Date(data.syncedAt).toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    badge.title = 'Pulled from Stripe (server-side) · synced ' + syncTime;
+    badge.style.display = 'inline-flex';
+  }
+
+  async function refreshFinance(){
+    setFinanceLoading(true);
+    try{
+      var res = await fetch('/finance-summary');
+      var data = await res.json();
+      if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
+      applyFinanceData(data);
+      showToast('Finance data refreshed from Stripe — ' + fmtMoney(data.month.collected) + ' collected this month');
+    }catch(err){
+      showToast('Refresh failed: ' + err.message);
+    }finally{
+      setFinanceLoading(false);
+    }
+  }
+
+  document.getElementById('financeRefreshBtn').addEventListener('click', refreshFinance);
+  refreshFinance();
+
+  var bookingState = { mode: 'month', offset: 0 };
+
+  function pad2(n){ return n < 10 ? '0' + n : '' + n; }
+  function fmtDate(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+
+  function buildBookingMonthOptions(){
+    var group = document.getElementById('bookingMonthGroup');
+    var now = new Date();
+    for(var i = 0; i <= 12; i++){
+      var offset = -i;
+      var d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      var opt = document.createElement('option');
+      opt.value = 'm:' + offset;
+      opt.textContent = d.toLocaleDateString(undefined,{month:'long', year:'numeric'}).toUpperCase();
+      group.appendChild(opt);
+    }
+  }
+  buildBookingMonthOptions();
+
+  function computeBookingRange(){
+    var now = new Date();
+    if(bookingState.mode === 'week'){
+      var day = now.getDay();
+      var thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      var start = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() + bookingState.offset*7);
+      var end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      var label = 'week of ' + start.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+      return { start: start, end: end, label: label };
+    }
+    var y = now.getFullYear(), m = now.getMonth() + bookingState.offset;
+    var start = new Date(y, m, 1);
+    var end = new Date(y, m + 1, 0);
+    var label = start.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+    return { start: start, end: end, label: label };
+  }
+
+  function syncBookingControls(){
+    var sel = document.getElementById('bookingRangeSelect');
+    var prefix = bookingState.mode === 'week' ? 'w:' : 'm:';
+    var wanted = prefix + bookingState.offset;
+    var hasOption = Array.prototype.some.call(sel.options, function(o){ return o.value === wanted; });
+    sel.value = hasOption ? wanted : 'custom';
+    document.getElementById('bookingNextBtn').disabled = bookingState.offset >= 0;
+  }
+
+  function setBookingLoading(isLoading){
+    var btn = document.getElementById('bookingRefreshBtn');
+    var icon = document.getElementById('bookingRefreshIcon');
+    btn.disabled = isLoading;
+    icon.classList.toggle('spinning', isLoading);
+    document.getElementById('funnelBlock').classList.toggle('loading-dim', isLoading);
+  }
+
+  function applyBookingData(data, rangeLabel){
+    document.getElementById('funnelBookedValue').textContent = data.booked;
+    document.getElementById('funnelTakenValue').textContent = data.taken;
+    document.getElementById('funnelClosedValue').textContent = data.closes;
+    document.getElementById('funnelShowRate').textContent = data.showRate.toFixed(1) + '%';
+    document.getElementById('funnelCloseRate').textContent = data.closeRate.toFixed(1) + '%';
+
+    document.getElementById('kpiBookedLabel').textContent = 'Booked Calls (' + rangeLabel + ')';
+    document.getElementById('kpiBookedValue').textContent = data.booked;
+    document.getElementById('kpiBookedSub').textContent = data.taken + ' taken · ' + data.showRate.toFixed(1) + '% show rate';
+
+    document.getElementById('kpiCloseRateLabel').textContent = 'Close Rate (' + rangeLabel + ')';
+    document.getElementById('kpiCloseRateValue').textContent = data.closeRate.toFixed(1) + '%';
+    document.getElementById('kpiCloseRateSub').textContent = data.closes + ' closed';
+
+    document.getElementById('bookingRangeLabel').textContent = data.start + ' to ' + data.end;
+
+    var badge = document.getElementById('bookingLiveBadge');
+    var syncTime = new Date(data.syncedAt).toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    badge.title = 'Pulled from GoHighLevel (server-side) · synced ' + syncTime;
+    badge.style.display = 'inline-flex';
+  }
+
+  async function refreshBooking(){
+    syncBookingControls();
+    setBookingLoading(true);
+    try{
+      var range = computeBookingRange();
+      var res = await fetch('/booking-summary?start=' + fmtDate(range.start) + '&end=' + fmtDate(range.end));
+      var data = await res.json();
+      if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
+      applyBookingData(data, range.label);
+    }catch(err){
+      showToast('Booking data refresh failed: ' + err.message);
+    }finally{
+      setBookingLoading(false);
+    }
+  }
+
+  document.getElementById('bookingRefreshBtn').addEventListener('click', refreshBooking);
+  document.getElementById('bookingPrevBtn').addEventListener('click', function(){ bookingState.offset -= 1; refreshBooking(); });
+  document.getElementById('bookingNextBtn').addEventListener('click', function(){ if(bookingState.offset < 0){ bookingState.offset += 1; refreshBooking(); } });
+  document.getElementById('bookingRangeSelect').addEventListener('change', function(e){
+    var v = e.target.value;
+    if(v.indexOf('w:') === 0){ bookingState.mode='week'; bookingState.offset=parseInt(v.slice(2),10); }
+    else if(v.indexOf('m:') === 0){ bookingState.mode='month'; bookingState.offset=parseInt(v.slice(2),10); }
+    refreshBooking();
+  });
+
+  refreshBooking();
+
+  var cashState = { mode: 'month', offset: 0 };
+
+  function buildCashMonthOptions(){
+    var group = document.getElementById('cashMonthGroup');
+    var now = new Date();
+    for(var i = 0; i <= 12; i++){
+      var offset = -i;
+      var d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      var opt = document.createElement('option');
+      opt.value = 'm:' + offset;
+      opt.textContent = d.toLocaleDateString(undefined,{month:'long', year:'numeric'}).toUpperCase();
+      group.appendChild(opt);
+    }
+  }
+  buildCashMonthOptions();
+
+  function computeCashRange(){
+    var now = new Date();
+    if(cashState.mode === 'week'){
+      var day = now.getDay();
+      var thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      var start = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() + cashState.offset*7);
+      var end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      var label = 'week of ' + start.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+      return { start: start, end: end, label: label };
+    }
+    var y = now.getFullYear(), m = now.getMonth() + cashState.offset;
+    var start = new Date(y, m, 1);
+    var end = new Date(y, m + 1, 0);
+    var label = start.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+    return { start: start, end: end, label: label };
+  }
+
+  function syncCashControls(){
+    var sel = document.getElementById('cashRangeSelect');
+    var prefix = cashState.mode === 'week' ? 'w:' : 'm:';
+    var wanted = prefix + cashState.offset;
+    var hasOption = Array.prototype.some.call(sel.options, function(o){ return o.value === wanted; });
+    sel.value = hasOption ? wanted : 'custom';
+    document.getElementById('cashNextBtn').disabled = cashState.offset >= 0;
+  }
+
+  function setCashLoading(isLoading){
+    var btn = document.getElementById('cashRefreshBtn');
+    var icon = document.getElementById('cashRefreshIcon');
+    btn.disabled = isLoading;
+    icon.classList.toggle('spinning', isLoading);
+    document.getElementById('cashKpiRow').classList.toggle('loading-dim', isLoading);
+  }
+
+  function applyCashData(data, rangeLabel){
+    document.getElementById('cashCollectedLabel').textContent = 'Cash Collected (' + rangeLabel + ')';
+    document.getElementById('cashCollectedValue').textContent = fmtMoney(data.collected);
+    document.getElementById('cashCollectedSub').textContent = data.start + ' to ' + data.end;
+    document.getElementById('cashRangeLabel').textContent = data.start + ' to ' + data.end;
+
+    var badge = document.getElementById('cashLiveBadge');
+    var syncTime = new Date(data.syncedAt).toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    badge.title = 'Pulled from Stripe (server-side) · synced ' + syncTime;
+    badge.style.display = 'inline-flex';
+  }
+
+  function applyMrrData(data){
+    document.getElementById('mrrValue').textContent = fmtMoney(data.mrr);
+    document.getElementById('mrrSub').textContent = data.activeSubscriptions + ' active subscription' + (data.activeSubscriptions === 1 ? '' : 's');
+  }
+
+  async function refreshMrr(){
+    try{
+      var res = await fetch('/mrr-summary');
+      var data = await res.json();
+      if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
+      applyMrrData(data);
+    }catch(err){
+      document.getElementById('mrrValue').textContent = 'N/A';
+      document.getElementById('mrrSub').innerHTML = 'Needs "Subscriptions: Read" on your Stripe key — <a href="https://dashboard.stripe.com/apikeys" target="_blank" style="color:var(--cyan);">edit key</a>';
+    }
+  }
+
+  async function refreshCash(){
+    syncCashControls();
+    setCashLoading(true);
+    try{
+      var range = computeCashRange();
+      var res = await fetch('/cash-summary?start=' + fmtDate(range.start) + '&end=' + fmtDate(range.end));
+      var data = await res.json();
+      if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
+      applyCashData(data, range.label);
+    }catch(err){
+      showToast('Cash data refresh failed: ' + err.message);
+    }finally{
+      setCashLoading(false);
+    }
+    refreshMrr();
+  }
+
+  document.getElementById('cashRefreshBtn').addEventListener('click', refreshCash);
+  document.getElementById('cashPrevBtn').addEventListener('click', function(){ cashState.offset -= 1; refreshCash(); });
+  document.getElementById('cashNextBtn').addEventListener('click', function(){ if(cashState.offset < 0){ cashState.offset += 1; refreshCash(); } });
+  document.getElementById('cashRangeSelect').addEventListener('change', function(e){
+    var v = e.target.value;
+    if(v.indexOf('w:') === 0){ cashState.mode='week'; cashState.offset=parseInt(v.slice(2),10); }
+    else if(v.indexOf('m:') === 0){ cashState.mode='month'; cashState.offset=parseInt(v.slice(2),10); }
+    refreshCash();
+  });
+
+  refreshCash();
+</script>

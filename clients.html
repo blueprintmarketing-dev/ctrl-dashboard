@@ -1,0 +1,270 @@
+<title>CTRL — Clients</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #060a0c; --panel: #0b1417; --panel-raised: #101c20; --panel-inset: #081114;
+    --line: #1c2c30; --line-soft: #132024;
+    --cyan: #3ee8de; --cyan-dim: #1f7a76; --cyan-glow: rgba(62,232,222,.32); --cyan-glow-soft: rgba(62,232,222,.14);
+    --ink: #dcefee; --ink-dim: #82999c; --ink-faint: #47585b;
+    --good: #38d97a; --good-glow: rgba(56,217,122,.16);
+    --warn: #f0a83c; --warn-glow: rgba(240,168,60,.16);
+    --crit: #ff5470; --crit-glow: rgba(255,84,112,.16);
+    --font-display: 'Orbitron', 'Arial Narrow', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    --font-body: 'Outfit', 'Segoe UI', sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ background: var(--void); color: var(--ink); font-family: var(--font-body); overflow:hidden; }
+  ::selection{ background: var(--cyan-glow); color: var(--ink); }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:5px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--cyan-dim); }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+
+  .shell{ display:flex; height:100vh; width:100%; position:relative;
+    background:
+      radial-gradient(760px 420px at 18% -8%, var(--cyan-glow-soft), transparent 62%),
+      radial-gradient(600px 380px at 96% 8%, rgba(62,232,222,.06), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      repeating-linear-gradient(90deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      var(--void); }
+
+  .rail{ width:62px; flex:0 0 62px; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:16px 0 18px; background: var(--panel); border-right:1px solid var(--line); position:relative; z-index:5; }
+  .rail-top, .rail-mid, .rail-bottom{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rail-mid{ gap:4px; }
+  .brand{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cyan-dim); border-radius:9px; color: var(--cyan); box-shadow: 0 0 14px var(--cyan-glow-soft); margin-bottom:6px; }
+  .brand svg{ width:18px; height:18px; }
+  .rail-divider{ width:26px; height:1px; background:var(--line); margin:10px 0; }
+  .nav-btn{ position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; color: var(--ink-faint); transition: color .15s ease, background-color .15s ease; }
+  .nav-btn svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .nav-btn:hover, .nav-btn:focus-visible{ color: var(--ink); background: var(--panel-raised); outline:none; }
+  .nav-btn.active{ color: var(--void); background: var(--cyan); box-shadow: 0 0 16px var(--cyan-glow); }
+  .nav-btn.active svg{ stroke: var(--void); }
+  .nav-btn::after{ content: attr(data-label); position:absolute; left:52px; top:50%; transform: translateY(-50%) translateX(-4px); background: var(--panel-raised); border:1px solid var(--line); color: var(--ink); font-size:11.5px; font-weight:500; letter-spacing:.02em; padding:5px 9px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity .12s ease, transform .12s ease; z-index:20; }
+  .nav-btn:hover::after, .nav-btn:focus-visible::after{ opacity:1; transform: translateY(-50%) translateX(0); }
+  .avatar{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: var(--panel-inset); border:1px solid var(--line); font-family: var(--font-mono); font-size:11px; color: var(--cyan); }
+
+  .main{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding: 26px 30px 56px; position:relative; z-index:2; }
+  .topbar{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px; }
+  .page-label{ font-family: var(--font-display); font-size:13px; font-weight:700; letter-spacing:.16em; color: var(--ink); text-transform:uppercase; }
+  .page-label span{ color: var(--cyan); }
+  .topbar-meta{ display:flex; align-items:center; gap:18px; font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .status-chip{ display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; background: var(--panel); }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; }
+  .dot.good{ background: var(--good); box-shadow:0 0 6px var(--good); }
+  .dot.warn{ background: var(--warn); box-shadow:0 0 6px var(--warn); }
+  .dot.pulse{ animation: pulse 2.2s ease-in-out infinite; }
+
+  .section{ margin-bottom:32px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color: var(--ink); }
+  .section-count{ font-family: var(--font-mono); font-size:11.5px; color: var(--ink-faint); }
+
+  .client-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; }
+  .client-card{ background: var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:15px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .client-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 24px var(--cyan-glow-soft); }
+  .client-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .client-name{ font-size:15px; font-weight:700; color: var(--ink); margin-bottom:3px; }
+  .client-industry{ font-size:11.5px; color: var(--ink-dim); }
+  .client-phase-badge{ font-family: var(--font-mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase; color: var(--cyan); background: var(--cyan-glow-soft); border:1px solid var(--cyan-dim); border-radius:20px; padding:3px 10px; white-space:nowrap; }
+
+  /* Phase stepper */
+  .phase-track{ display:flex; align-items:flex-start; }
+  .phase-step{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; }
+  .phase-step::before{ content:""; position:absolute; top:6px; left:-50%; width:100%; height:2px; background: var(--line); z-index:0; }
+  .phase-step:first-child::before{ display:none; }
+  .phase-step.done::before{ background: var(--cyan-dim); }
+  .phase-dot{ width:13px; height:13px; border-radius:50%; background: var(--panel-inset); border:2px solid var(--line); z-index:1; }
+  .phase-step.done .phase-dot{ background: var(--cyan-dim); border-color: var(--cyan-dim); }
+  .phase-step.current .phase-dot{ background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 10px var(--cyan-glow); }
+  .phase-label{ font-family: var(--font-mono); font-size:9px; letter-spacing:.02em; text-transform:uppercase; color: var(--ink-faint); text-align:center; }
+  .phase-step.done .phase-label{ color: var(--ink-dim); }
+  .phase-step.current .phase-label{ color: var(--cyan); }
+
+  /* Checklist */
+  .checklist{ display:flex; flex-direction:column; gap:8px; }
+  .check-item{ display:flex; align-items:center; gap:9px; cursor:pointer; user-select:none; }
+  .check-box{ width:15px; height:15px; border-radius:4px; border:1.5px solid var(--line); flex:0 0 auto; display:flex; align-items:center; justify-content:center; transition: border-color .15s ease, background-color .15s ease; }
+  .check-item input{ display:none; }
+  .check-item input:checked + .check-box{ background: var(--cyan); border-color: var(--cyan); }
+  .check-box svg{ width:9px; height:9px; opacity:0; transition: opacity .1s ease; }
+  .check-item input:checked + .check-box svg{ opacity:1; }
+  .check-text{ font-size:12px; color: var(--ink-dim); transition: color .15s ease; }
+  .check-item input:checked ~ .check-text{ color: var(--ink-faint); text-decoration: line-through; text-decoration-color: var(--line); }
+
+  /* Next action */
+  .next-action{ background: var(--panel-inset); border:1px solid var(--cyan-dim); border-radius:9px; padding:12px 14px; display:flex; flex-direction:column; gap:5px; box-shadow: inset 0 0 0 1px rgba(62,232,222,.04); }
+  .next-action.overdue{ border-color: rgba(255,84,112,.4); }
+  .next-eyebrow{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color: var(--cyan); display:flex; align-items:center; justify-content:space-between; }
+  .next-action.overdue .next-eyebrow{ color: var(--crit); }
+  .next-text{ font-size:12.5px; color: var(--ink); line-height:1.5; }
+  .next-due{ font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); }
+  .next-action.overdue .next-due{ color: var(--crit); }
+
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .reveal{ animation: fadeUp .55s cubic-bezier(.16,.8,.4,1) both; }
+  @media (prefers-reduced-motion: reduce){ .reveal{ animation:none; opacity:1; transform:none; } .dot.pulse{ animation:none; } }
+
+  @media (max-width: 1180px){ .client-grid{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px){ .client-grid{ grid-template-columns: 1fr; } }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="rail-top">
+      <a class="brand" href="ai-dashboard.html" title="CTRL — Home">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none"/><line x1="10" y1="1.4" x2="10" y2="4.4" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="15.6" x2="10" y2="18.6" stroke="currentColor" stroke-width="1.4"/><line x1="1.4" y1="10" x2="4.4" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="15.6" y1="10" x2="18.6" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>
+      </a>
+    </div>
+    <div class="rail-mid">
+      <a class="nav-btn" data-label="Overview" aria-label="Overview" href="ai-dashboard.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Research" aria-label="Research" href="research.html">
+        <svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Pipeline" aria-label="Pipeline" href="pipeline.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="4" width="4" height="13" rx="1"/><rect x="8" y="4" width="4" height="8" rx="1"/><rect x="14" y="4" width="4" height="11" rx="1"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Performance" aria-label="Performance" href="performance.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="11" width="3.4" height="7" rx=".8"/><rect x="8.3" y="6" width="3.4" height="12" rx=".8"/><rect x="14.6" y="2" width="3.4" height="16" rx=".8"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Growth" aria-label="Growth" href="growth.html">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4.2"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Agents" aria-label="Agents" href="agents.html">
+        <svg viewBox="0 0 20 20"><rect x="4" y="6.4" width="12" height="9.6" rx="2"/><circle cx="7.8" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.2" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><line x1="10" y1="6.4" x2="10" y2="3"/><circle cx="10" cy="2" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn active" data-label="Clients" aria-label="Clients" aria-current="page" href="clients.html">
+        <svg viewBox="0 0 20 20"><rect x="2.5" y="7.4" width="15" height="9.6" rx="1.6"/><path d="M7.2 7.4V5.6a2 2 0 0 1 2-2h1.6a2 2 0 0 1 2 2v1.8"/><line x1="2.5" y1="11.6" x2="17.5" y2="11.6"/></svg>
+      </a>
+    </div>
+    <div class="rail-bottom">
+      <div class="rail-divider"></div>
+      <div class="avatar" title="contact@blueprintmarketing.info">CB</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar reveal">
+      <div class="page-label">CTRL <span>/ CLIENTS</span></div>
+      <div class="topbar-meta">
+        <span class="status-chip"><span class="dot good pulse"></span>6 ACTIVE CLIENTS</span>
+        <span>1 ACTION OVERDUE</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="client-grid">
+
+        <div class="client-card reveal" style="animation-delay:.04s">
+          <div class="client-head"><div><div class="client-name">Southwest Hardscape</div><div class="client-industry">Hardscaping &amp; patios</div></div><span class="client-phase-badge">Production</span></div>
+          <div class="phase-track">
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Content calendar approved</span></label>
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Job-site shoot completed</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">$100K close story cleared for release</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Estimate-booking funnel live</span></label>
+          </div>
+          <div class="next-action"><div class="next-eyebrow">Next Action</div><div class="next-text">Get sign-off on the $100K close story before it goes live.</div><div class="next-due">Due tomorrow</div></div>
+        </div>
+
+        <div class="client-card reveal" style="animation-delay:.07s">
+          <div class="client-head"><div><div class="client-name">Palo Verde Landscaping</div><div class="client-industry">Landscape design &amp; install</div></div><span class="client-phase-badge">Production</span></div>
+          <div class="phase-track">
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Content calendar approved</span></label>
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Job-site shoot completed</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Weekly posting cadence confirmed</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Estimate-booking funnel live</span></label>
+          </div>
+          <div class="next-action"><div class="next-eyebrow">Next Action</div><div class="next-text">Confirm the next job-site shoot date — need 2 more before month end.</div><div class="next-due">Due Sep 10</div></div>
+        </div>
+
+        <div class="client-card reveal" style="animation-delay:.10s">
+          <div class="client-head"><div><div class="client-name">Ridgeline Roofing Co.</div><div class="client-industry">Roofing</div></div><span class="client-phase-badge">Onboarding</span></div>
+          <div class="phase-track">
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Kickoff call held</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Job-site access &amp; schedule set</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Ad account access granted</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">First shoot scheduled</span></label>
+          </div>
+          <div class="next-action overdue"><div class="next-eyebrow">Next Action<span>OVERDUE</span></div><div class="next-text">Follow up on ad account access — it's blocking the funnel build.</div><div class="next-due">Due yesterday</div></div>
+        </div>
+
+        <div class="client-card reveal" style="animation-delay:.13s">
+          <div class="client-head"><div><div class="client-name">Desert Bloom Irrigation</div><div class="client-industry">Irrigation systems</div></div><span class="client-phase-badge">Optimize</span></div>
+          <div class="phase-track">
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Performance review sent</span></label>
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Ad creative A/B test complete</span></label>
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Referral program templates built</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Referral program launched</span></label>
+          </div>
+          <div class="next-action"><div class="next-eyebrow">Next Action</div><div class="next-text">Launch the referral UGC templates — they're ready for review.</div><div class="next-due">Due Sep 12</div></div>
+        </div>
+
+        <div class="client-card reveal" style="animation-delay:.16s">
+          <div class="client-head"><div><div class="client-name">Northgate Concrete</div><div class="client-industry">Concrete &amp; flatwork</div></div><span class="client-phase-badge">Strategy</span></div>
+          <div class="phase-track">
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Competitor audit complete</span></label>
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Service-area &amp; offer positioning set</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Content pillars sign-off</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Platform priority decided</span></label>
+          </div>
+          <div class="next-action"><div class="next-eyebrow">Next Action</div><div class="next-text">Send the content pillar proposal for sign-off.</div><div class="next-due">Due Sep 10</div></div>
+        </div>
+
+        <div class="client-card reveal" style="animation-delay:.19s">
+          <div class="client-head"><div><div class="client-name">Summit Fence &amp; Rail</div><div class="client-industry">Fencing</div></div><span class="client-phase-badge">Strategy</span></div>
+          <div class="phase-track">
+            <div class="phase-step done"><div class="phase-dot"></div><div class="phase-label">Onboard</div></div>
+            <div class="phase-step current"><div class="phase-dot"></div><div class="phase-label">Strategy</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Production</div></div>
+            <div class="phase-step"><div class="phase-dot"></div><div class="phase-label">Optimize</div></div>
+          </div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox" checked><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Competitor audit complete</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Founder on-camera comfort assessed</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Content pillars sign-off</span></label>
+            <label class="check-item"><input type="checkbox"><span class="check-box"><svg viewBox="0 0 9 9"><path d="M1 4.5l2.2 2.2L8 2" fill="none" stroke="var(--void)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="check-text">Platform priority decided</span></label>
+          </div>
+          <div class="next-action"><div class="next-eyebrow">Next Action</div><div class="next-text">Schedule the founder's first on-camera trial.</div><div class="next-due">Due Sep 11</div></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>

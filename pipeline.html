@@ -1,0 +1,663 @@
+<title>CTRL — Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #060a0c; --panel: #0b1417; --panel-raised: #101c20; --panel-inset: #081114;
+    --line: #1c2c30; --line-soft: #132024;
+    --cyan: #3ee8de; --cyan-dim: #1f7a76; --cyan-glow: rgba(62,232,222,.32); --cyan-glow-soft: rgba(62,232,222,.14);
+    --ink: #dcefee; --ink-dim: #82999c; --ink-faint: #47585b;
+    --good: #38d97a; --good-glow: rgba(56,217,122,.16);
+    --warn: #f0a83c; --warn-glow: rgba(240,168,60,.16);
+    --crit: #ff5470; --crit-glow: rgba(255,84,112,.16);
+    --font-display: 'Orbitron', 'Arial Narrow', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    --font-body: 'Outfit', 'Segoe UI', sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ background: var(--void); color: var(--ink); font-family: var(--font-body); overflow:hidden; }
+  ::selection{ background: var(--cyan-glow); color: var(--ink); }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:5px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--cyan-dim); }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+
+  .shell{ display:flex; height:100vh; width:100%; position:relative;
+    background:
+      radial-gradient(760px 420px at 18% -8%, var(--cyan-glow-soft), transparent 62%),
+      radial-gradient(600px 380px at 96% 8%, rgba(62,232,222,.06), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      repeating-linear-gradient(90deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      var(--void); }
+
+  .rail{ width:62px; flex:0 0 62px; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:16px 0 18px; background: var(--panel); border-right:1px solid var(--line); position:relative; z-index:5; }
+  .rail-top, .rail-mid, .rail-bottom{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rail-mid{ gap:4px; }
+  .brand{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cyan-dim); border-radius:9px; color: var(--cyan); box-shadow: 0 0 14px var(--cyan-glow-soft); margin-bottom:6px; }
+  .brand svg{ width:18px; height:18px; }
+  .rail-divider{ width:26px; height:1px; background:var(--line); margin:10px 0; }
+  .nav-btn{ position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; color: var(--ink-faint); transition: color .15s ease, background-color .15s ease; }
+  .nav-btn svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .nav-btn:hover, .nav-btn:focus-visible{ color: var(--ink); background: var(--panel-raised); outline:none; }
+  .nav-btn.active{ color: var(--void); background: var(--cyan); box-shadow: 0 0 16px var(--cyan-glow); }
+  .nav-btn.active svg{ stroke: var(--void); }
+  .nav-btn::after{ content: attr(data-label); position:absolute; left:52px; top:50%; transform: translateY(-50%) translateX(-4px); background: var(--panel-raised); border:1px solid var(--line); color: var(--ink); font-size:11.5px; font-weight:500; letter-spacing:.02em; padding:5px 9px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity .12s ease, transform .12s ease; z-index:20; }
+  .nav-btn:hover::after, .nav-btn:focus-visible::after{ opacity:1; transform: translateY(-50%) translateX(0); }
+  .avatar{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: var(--panel-inset); border:1px solid var(--line); font-family: var(--font-mono); font-size:11px; color: var(--cyan); }
+
+  .main{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding: 26px 30px 56px; position:relative; z-index:2; }
+  .topbar{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px; }
+  .page-label{ font-family: var(--font-display); font-size:13px; font-weight:700; letter-spacing:.16em; color: var(--ink); text-transform:uppercase; }
+  .page-label span{ color: var(--cyan); }
+  .topbar-meta{ display:flex; align-items:center; gap:18px; font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .status-chip{ display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; background: var(--panel); }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; }
+  .dot.good{ background: var(--good); box-shadow:0 0 6px var(--good); }
+  .dot.pulse{ animation: pulse 2.2s ease-in-out infinite; }
+
+  .section{ margin-bottom:32px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color: var(--ink); }
+  .section-count{ font-family: var(--font-mono); font-size:11.5px; color: var(--ink-faint); }
+  .section-hint{ font-size:11.5px; color: var(--ink-faint); }
+
+  /* Kanban board */
+  .kanban{ display:grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap:14px; align-items:start; overflow-x:auto; padding-bottom:6px; margin-bottom:38px; }
+  .kanban-col{ background: var(--panel-inset); border:1px solid var(--line); border-radius:11px; padding:12px; min-width:0; display:flex; flex-direction:column; gap:9px; transition: border-color .15s ease, box-shadow .15s ease; }
+  .kanban-col.drag-over{ border-color: var(--cyan-dim); box-shadow: 0 0 0 1px var(--cyan-dim) inset, 0 0 22px var(--cyan-glow-soft); }
+  .kanban-col-head{ display:flex; align-items:center; justify-content:space-between; padding:2px 3px 8px; border-bottom:1px solid var(--line-soft); margin-bottom:2px; }
+  .kanban-col-title{ font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color: var(--ink-dim); }
+  .kanban-col-count{ font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); background: var(--panel); border:1px solid var(--line); border-radius:10px; padding:1px 6px; min-width:20px; text-align:center; }
+  .kanban-col-body{ display:flex; flex-direction:column; gap:9px; min-height:64px; }
+  .kanban-col-body:empty::after{ content:"Drop a card here"; display:flex; align-items:center; justify-content:center; height:56px; border:1px dashed var(--line); border-radius:8px; font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); }
+  .kanban-card{ background: var(--panel); border:1px solid var(--line); border-radius:9px; padding:11px 12px; display:flex; flex-direction:column; gap:9px; cursor:grab; transition: border-color .15s ease, box-shadow .15s ease, opacity .15s ease; }
+  .kanban-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 16px var(--cyan-glow-soft); }
+  .kanban-card.dragging{ opacity:.35; }
+  .kanban-card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .kanban-card-title{ font-size:12.5px; line-height:1.42; color: var(--ink); }
+  .grip{ flex:0 0 auto; display:grid; grid-template-columns:repeat(2,3px); gap:2px; padding-top:2px; opacity:.5; }
+  .grip span{ width:3px; height:3px; border-radius:50%; background: var(--ink-faint); }
+  .kanban-card-meta{ display:flex; align-items:center; justify-content:flex-end; }
+  .kanban-tag{ font-family: var(--font-mono); font-size:10px; color: var(--ink-faint); border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+  .kanban-avatar{ width:18px; height:18px; border-radius:50%; background: var(--panel-inset); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size:8.5px; color: var(--cyan); }
+  .script-btn{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--cyan-dim); border-radius:6px; padding:3px 8px; color: var(--cyan); background:none; font-family: var(--font-mono); font-size:10px; letter-spacing:.02em; transition: background-color .15s ease, box-shadow .15s ease; flex:0 0 auto; }
+  .script-btn:hover, .script-btn:focus-visible{ background: var(--cyan-glow-soft); box-shadow: 0 0 10px var(--cyan-glow-soft); outline:none; }
+  .script-btn svg{ width:9px; height:9px; }
+  .script-badge{ display:inline-flex; align-items:center; gap:5px; font-family: var(--font-mono); font-size:10px; color: var(--cyan); background: var(--cyan-glow-soft); border:1px solid var(--cyan-dim); border-radius:5px; padding:2px 7px; align-self:flex-start; }
+  .script-badge svg{ width:9px; height:9px; }
+  .kanban-card[data-has-script="1"]{ cursor:pointer; }
+  .schedule-badge{ display:inline-flex; align-items:center; gap:5px; font-family: var(--font-mono); font-size:10px; color: var(--cyan); background: var(--cyan-glow-soft); border:1px solid var(--cyan-dim); border-radius:5px; padding:2px 7px; align-self:flex-start; }
+  .schedule-badge svg{ width:9px; height:9px; }
+
+  /* Repurpose suggestions */
+  .repurpose-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+  .repurpose-card{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:15px 16px; display:flex; flex-direction:column; gap:11px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .repurpose-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); }
+  .repurpose-source{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .repurpose-source-title{ font-size:12.5px; font-weight:600; color: var(--ink); }
+  .repurpose-arrow{ display:flex; align-items:center; gap:8px; font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); }
+  .repurpose-arrow svg{ width:12px; height:12px; color: var(--cyan); }
+  .repurpose-suggestion{ font-size:12px; color: var(--ink-dim); line-height:1.55; }
+  .add-idea-btn{ display:inline-flex; align-items:center; gap:6px; align-self:flex-start; border:1px solid var(--cyan-dim); border-radius:7px; padding:5px 11px; color: var(--cyan); font-family: var(--font-mono); font-size:11px; transition: background-color .15s ease, box-shadow .15s ease; }
+  .add-idea-btn:hover, .add-idea-btn:focus-visible{ background: var(--cyan-glow-soft); box-shadow: 0 0 12px var(--cyan-glow-soft); outline:none; }
+  .add-idea-btn.added{ color: var(--good); border-color: var(--good); }
+  .add-idea-btn svg{ width:10px; height:10px; }
+
+  /* Modal */
+  .modal-overlay{ position:fixed; inset:0; background: rgba(3,6,7,.7); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition: opacity .15s ease; z-index:60; }
+  .modal-overlay.open{ opacity:1; pointer-events:auto; }
+  .modal{ width:340px; background: var(--panel-raised); border:1px solid var(--cyan-dim); border-radius:12px; padding:20px; box-shadow: 0 0 40px var(--cyan-glow-soft), 0 20px 60px rgba(0,0,0,.5); transform: translateY(8px); transition: transform .15s ease; }
+  .modal.wide{ width:460px; }
+  .modal-overlay.open .modal{ transform: translateY(0); }
+  .modal-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color: var(--ink); margin-bottom:4px; }
+  .modal-sub{ font-size:12px; color: var(--ink-dim); margin-bottom:16px; }
+  .modal-sub b{ color: var(--ink); font-weight:600; }
+  .modal-field{ margin-bottom:12px; }
+  .modal-field label{ display:block; font-family: var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color: var(--ink-faint); margin-bottom:6px; }
+  .modal-field input{ width:100%; background: var(--panel-inset); border:1px solid var(--line-soft); border-radius:7px; color: var(--ink); font-family: var(--font-mono); font-size:12.5px; padding:8px 10px; }
+  .modal-field input:focus{ outline:none; border-color: var(--cyan-dim); box-shadow:0 0 0 3px var(--cyan-glow-soft); }
+  .modal-field textarea{ width:100%; min-height:200px; resize:vertical; background: var(--panel-inset); border:1px solid var(--line-soft); border-radius:7px; color: var(--ink); font-family: var(--font-mono); font-size:12.5px; padding:10px 12px; line-height:1.6; }
+  .modal-field textarea:focus{ outline:none; border-color: var(--cyan-dim); box-shadow:0 0 0 3px var(--cyan-glow-soft); }
+  .modal-field textarea:disabled{ opacity:.55; }
+  .modal-field textarea::placeholder{ color: var(--ink-faint); }
+  .modal-actions{ display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .modal-actions .spacer{ flex:1; }
+  .modal-btn{ font-family: var(--font-mono); font-size:11.5px; padding:7px 14px; border-radius:7px; border:1px solid var(--line); color: var(--ink-dim); }
+  .modal-btn:hover{ color: var(--ink); border-color: var(--ink-faint); }
+  .modal-btn.primary{ border-color: var(--cyan-dim); color: var(--void); background: var(--cyan); font-weight:600; box-shadow:0 0 14px var(--cyan-glow); }
+  .modal-btn.primary:hover{ filter:brightness(1.08); }
+
+  .toast{ position:fixed; bottom:22px; left:50%; transform: translateX(-50%) translateY(12px); background: var(--panel-raised); border:1px solid var(--cyan-dim); color: var(--ink); font-family: var(--font-mono); font-size:12px; padding:9px 16px; border-radius:8px; box-shadow: 0 0 20px var(--cyan-glow-soft); opacity:0; pointer-events:none; transition: opacity .18s ease, transform .18s ease; z-index:50; }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .reveal{ animation: fadeUp .55s cubic-bezier(.16,.8,.4,1) both; }
+  @media (prefers-reduced-motion: reduce){ .reveal{ animation:none; opacity:1; transform:none; } .dot.pulse{ animation:none; } }
+
+  @media (max-width: 860px){ .repurpose-grid{ grid-template-columns: 1fr; } }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="rail-top">
+      <a class="brand" href="ai-dashboard.html" title="CTRL — Home">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none"/><line x1="10" y1="1.4" x2="10" y2="4.4" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="15.6" x2="10" y2="18.6" stroke="currentColor" stroke-width="1.4"/><line x1="1.4" y1="10" x2="4.4" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="15.6" y1="10" x2="18.6" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>
+      </a>
+    </div>
+    <div class="rail-mid">
+      <a class="nav-btn" data-label="Overview" aria-label="Overview" href="ai-dashboard.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Research" aria-label="Research" href="research.html">
+        <svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg>
+      </a>
+      <a class="nav-btn active" data-label="Pipeline" aria-label="Pipeline" aria-current="page" href="pipeline.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="4" width="4" height="13" rx="1"/><rect x="8" y="4" width="4" height="8" rx="1"/><rect x="14" y="4" width="4" height="11" rx="1"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Performance" aria-label="Performance" href="performance.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="11" width="3.4" height="7" rx=".8"/><rect x="8.3" y="6" width="3.4" height="12" rx=".8"/><rect x="14.6" y="2" width="3.4" height="16" rx=".8"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Growth" aria-label="Growth" href="growth.html">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4.2"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Agents" aria-label="Agents" href="agents.html">
+        <svg viewBox="0 0 20 20"><rect x="4" y="6.4" width="12" height="9.6" rx="2"/><circle cx="7.8" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.2" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><line x1="10" y1="6.4" x2="10" y2="3"/><circle cx="10" cy="2" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Clients" aria-label="Clients" href="clients.html">
+        <svg viewBox="0 0 20 20"><rect x="2.5" y="7.4" width="15" height="9.6" rx="1.6"/><path d="M7.2 7.4V5.6a2 2 0 0 1 2-2h1.6a2 2 0 0 1 2 2v1.8"/><line x1="2.5" y1="11.6" x2="17.5" y2="11.6"/></svg>
+      </a>
+    </div>
+    <div class="rail-bottom">
+      <div class="rail-divider"></div>
+      <div class="avatar" title="contact@blueprintmarketing.info">CB</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar reveal">
+      <div class="page-label">CTRL <span>/ PIPELINE</span></div>
+      <div class="topbar-meta">
+        <span class="status-chip"><span class="dot good pulse"></span>17 IN MOTION</span>
+        <span class="section-hint">Drag cards between columns · drop on Scheduled to set a time</span>
+      </div>
+    </div>
+
+    <div class="kanban reveal" style="animation-delay:.04s" id="board">
+      <div class="kanban-col" data-col="ideas">
+        <div class="kanban-col-head"><span class="kanban-col-title">Ideas</span><span class="kanban-col-count">4</span></div>
+        <div class="kanban-col-body">
+          <div class="kanban-card" draggable="true" data-id="idea-1"><div class="kanban-card-top"><div class="kanban-card-title">Why the lowest bid loses the best jobs</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="idea-2"><div class="kanban-card-top"><div class="kanban-card-title">The permit mistake that kills a 6-figure job</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="idea-3"><div class="kanban-card-top"><div class="kanban-card-title">Client Q&amp;A round 12</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="idea-4"><div class="kanban-card-top"><div class="kanban-card-title">Founder story teaser</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+        </div>
+      </div>
+
+      <div class="kanban-col" data-col="scripting">
+        <div class="kanban-col-head"><span class="kanban-col-title">Scripting</span><span class="kanban-col-count">3</span></div>
+        <div class="kanban-col-body">
+          <div class="kanban-card" draggable="true" data-id="script-1"><div class="kanban-card-top"><div class="kanban-card-title">The $100K estimate nobody believes is real</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="script-2"><div class="kanban-card-top"><div class="kanban-card-title">3 signs you're pricing jobs wrong</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="script-3"><div class="kanban-card-top"><div class="kanban-card-title">Why "we'll think about it" really means no</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+        </div>
+      </div>
+
+      <div class="kanban-col" data-col="editing">
+        <div class="kanban-col-head"><span class="kanban-col-title">Editing</span><span class="kanban-col-count">3</span></div>
+        <div class="kanban-col-body">
+          <div class="kanban-card" draggable="true" data-id="edit-1"><div class="kanban-card-top"><div class="kanban-card-title">Job site walkthrough — Palo Verde cut</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="edit-2"><div class="kanban-card-top"><div class="kanban-card-title">Founder story teaser, cut 2</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="edit-3"><div class="kanban-card-top"><div class="kanban-card-title">Client Q&amp;A round 11</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+        </div>
+      </div>
+
+      <div class="kanban-col" data-col="scheduled">
+        <div class="kanban-col-head"><span class="kanban-col-title">Scheduled</span><span class="kanban-col-count">4</span></div>
+        <div class="kanban-col-body">
+          <div class="kanban-card" draggable="true" data-id="sched-1"><div class="schedule-badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Today, 14:30</div><div class="kanban-card-top"><div class="kanban-card-title">Lowest bid myth</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="sched-2"><div class="schedule-badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Today, 16:00</div><div class="kanban-card-top"><div class="kanban-card-title">Permit mistake hook</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="sched-3"><div class="schedule-badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Today, 18:00</div><div class="kanban-card-top"><div class="kanban-card-title">Weekly recap</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="sched-4"><div class="schedule-badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Today, 20:00</div><div class="kanban-card-top"><div class="kanban-card-title">Q&amp;A clip</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+        </div>
+      </div>
+
+      <div class="kanban-col" data-col="published">
+        <div class="kanban-col-head"><span class="kanban-col-title">Published</span><span class="kanban-col-count">3</span></div>
+        <div class="kanban-col-body">
+          <div class="kanban-card" draggable="true" data-id="pub-1"><div class="kanban-card-top"><div class="kanban-card-title">Job site proof — before/after</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="pub-2"><div class="kanban-card-top"><div class="kanban-card-title">Referral pipeline breakdown</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card" draggable="true" data-id="pub-3"><div class="kanban-card-top"><div class="kanban-card-title">Founder AMA clip</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.08s">
+        <div class="section-title">Repurpose Suggestions</div>
+        <div class="section-count">From recent publishes</div>
+      </div>
+      <div class="repurpose-grid">
+        <div class="repurpose-card reveal" style="animation-delay:.10s">
+          <div class="repurpose-source"><span class="repurpose-source-title">Job site proof — before/after</span><span class="platform-chip kanban-tag">REEL</span></div>
+          <div class="repurpose-arrow"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Carousel Post</div>
+          <div class="repurpose-suggestion">Break the transformation into a 4-slide carousel — carousels tend to pull extra saves.</div>
+          <button class="add-idea-btn" data-title="Job site proof — carousel cut"><svg viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add to Ideas</button>
+        </div>
+        <div class="repurpose-card reveal" style="animation-delay:.13s">
+          <div class="repurpose-source"><span class="repurpose-source-title">Referral pipeline breakdown</span><span class="platform-chip kanban-tag">REEL</span></div>
+          <div class="repurpose-arrow"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Story Highlight</div>
+          <div class="repurpose-suggestion">Pin this to a "How We Work" highlight so new leads find it without digging.</div>
+          <button class="add-idea-btn" data-title="Referral pipeline — pin to highlight"><svg viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add to Ideas</button>
+        </div>
+        <div class="repurpose-card reveal" style="animation-delay:.16s">
+          <div class="repurpose-source"><span class="repurpose-source-title">Founder AMA clip</span><span class="platform-chip kanban-tag">REEL</span></div>
+          <div class="repurpose-arrow"><svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>3 Separate Reels</div>
+          <div class="repurpose-suggestion">Three answers stand alone well — cut each into its own captioned Reel.</div>
+          <button class="add-idea-btn" data-title="Founder AMA — 3 separate Reels"><svg viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add to Ideas</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title">Schedule Post</div>
+    <div class="modal-sub">Set a publish time for <b id="modalCardTitle">this post</b>.</div>
+    <div class="modal-field"><label>Date</label><input type="date" id="modalDate"></div>
+    <div class="modal-field"><label>Time</label><input type="time" id="modalTime"></div>
+    <div class="modal-actions">
+      <button class="modal-btn" id="modalCancel">Cancel</button>
+      <button class="modal-btn primary" id="modalConfirm">Confirm Schedule</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="scriptModalOverlay">
+  <div class="modal wide">
+    <div class="modal-title">Script — <span id="scriptModalTopic"></span></div>
+    <div class="modal-sub" id="scriptModalStatus">Generating with Claude…</div>
+    <div class="modal-field">
+      <label>Script</label>
+      <textarea id="scriptTextarea" rows="9" placeholder="GENERATING SCRIPT..." disabled></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn" id="scriptRegenBtn">Regenerate</button>
+      <div class="spacer"></div>
+      <button class="modal-btn" id="scriptCancelBtn">Cancel</button>
+      <button class="modal-btn primary" id="scriptSaveBtn" disabled>Save &amp; Move to Scripting</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var pendingDrop = null; // { card, targetBody }
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  function updateCounts(){
+    document.querySelectorAll('.kanban-col').forEach(function(col){
+      var count = col.querySelector('.kanban-col-body').children.length;
+      col.querySelector('.kanban-col-count').textContent = count;
+    });
+  }
+
+  function attachDragHandlers(card){
+    card.addEventListener('dragstart', function(e){
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', function(){ card.classList.remove('dragging'); });
+  }
+
+  document.querySelectorAll('.kanban-card').forEach(attachDragHandlers);
+
+  document.querySelectorAll('.kanban-col').forEach(function(col){
+    var body = col.querySelector('.kanban-col-body');
+    col.addEventListener('dragover', function(e){ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', function(e){ if(!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('drop', function(e){
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      var id = e.dataTransfer.getData('text/plain');
+      var card = document.querySelector('.kanban-card[data-id="' + id + '"]');
+      if(!card) return;
+      if(card.parentElement === body) return;
+
+      if(col.dataset.col === 'scheduled'){
+        pendingDrop = { card: card, body: body };
+        var titleEl = card.querySelector('.kanban-card-title');
+        document.getElementById('modalCardTitle').textContent = titleEl ? titleEl.textContent : 'this post';
+        var d = new Date();
+        document.getElementById('modalDate').value = d.toISOString().slice(0,10);
+        document.getElementById('modalTime').value = '12:00';
+        document.getElementById('modalOverlay').classList.add('open');
+      } else {
+        var badge = card.querySelector('.schedule-badge');
+        if(badge) badge.remove();
+        body.appendChild(card);
+        updateCounts();
+        serializeBoard();
+      }
+    });
+  });
+
+  document.getElementById('modalCancel').addEventListener('click', function(){
+    pendingDrop = null;
+    document.getElementById('modalOverlay').classList.remove('open');
+  });
+
+  document.getElementById('modalOverlay').addEventListener('click', function(e){
+    if(e.target === this){ pendingDrop = null; this.classList.remove('open'); }
+  });
+
+  document.getElementById('modalConfirm').addEventListener('click', function(){
+    if(!pendingDrop) return;
+    var card = pendingDrop.card, body = pendingDrop.body;
+    var dateVal = document.getElementById('modalDate').value;
+    var timeVal = document.getElementById('modalTime').value || '12:00';
+    var dateObj = dateVal ? new Date(dateVal + 'T00:00:00') : new Date();
+    var today = new Date();
+    var isToday = dateObj.toDateString() === today.toDateString();
+    var label = (isToday ? 'Today' : dateObj.toLocaleDateString(undefined,{month:'short',day:'numeric'})) + ', ' + timeVal;
+
+    var existing = card.querySelector('.schedule-badge');
+    if(existing) existing.remove();
+    var badge = document.createElement('div');
+    badge.className = 'schedule-badge';
+    badge.innerHTML = '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' + label;
+    card.insertBefore(badge, card.firstChild);
+
+    body.appendChild(card);
+    updateCounts();
+    serializeBoard();
+    document.getElementById('modalOverlay').classList.remove('open');
+    showToast('Scheduled for ' + label);
+    pendingDrop = null;
+  });
+
+  document.querySelectorAll('.add-idea-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(btn.classList.contains('added')) return;
+      var title = btn.getAttribute('data-title');
+      var ideasBody = document.querySelector('.kanban-col[data-col="ideas"] .kanban-col-body');
+      var card = document.createElement('div');
+      card.className = 'kanban-card';
+      card.draggable = true;
+      card.dataset.id = 'idea-' + Date.now();
+      card.innerHTML = '<div class="kanban-card-top"><div class="kanban-card-title">' + title + '</div><div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div></div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div>';
+      ideasBody.appendChild(card);
+      attachDragHandlers(card);
+      attachScriptButton(card);
+      updateCounts();
+      serializeBoard();
+      btn.classList.add('added');
+      btn.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Added';
+      showToast('Added to Ideas');
+    });
+  });
+
+  /* ---------- Script generation (via local proxy.js + claude CLI) ---------- */
+  var SCRIPT_KEY_PREFIX = 'ctrl_script_';
+  var currentScriptCardId = null;
+
+  function scriptKey(id){ return SCRIPT_KEY_PREFIX + id; }
+  function getSavedScript(id){ try{ return localStorage.getItem(scriptKey(id)); }catch(e){ return null; } }
+  function setSavedScript(id, text){ try{ localStorage.setItem(scriptKey(id), text); }catch(e){} }
+
+  function markCardScripted(card){
+    card.dataset.hasScript = '1';
+    if(!card.querySelector('.script-badge')){
+      var badge = document.createElement('div');
+      badge.className = 'script-badge';
+      badge.innerHTML = '<svg viewBox="0 0 12 12"><path d="M3 2h4l2 2v6H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M4.5 6.5h5M4.5 8.5h5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>Scripted';
+      card.insertBefore(badge, card.firstChild);
+    }
+  }
+
+  function openScriptModal(cardId, topic, existingScript){
+    currentScriptCardId = cardId;
+    document.getElementById('scriptModalTopic').textContent = topic;
+    var ta = document.getElementById('scriptTextarea');
+    var saveBtn = document.getElementById('scriptSaveBtn');
+    var status = document.getElementById('scriptModalStatus');
+    document.getElementById('scriptModalOverlay').classList.add('open');
+    if(existingScript){
+      ta.value = existingScript;
+      ta.disabled = false;
+      saveBtn.disabled = false;
+      status.textContent = 'Saved script — edit and re-save anytime.';
+    } else {
+      generateScript(topic);
+    }
+  }
+  function closeScriptModal(){
+    document.getElementById('scriptModalOverlay').classList.remove('open');
+    currentScriptCardId = null;
+  }
+
+  async function generateScript(topic){
+    var ta = document.getElementById('scriptTextarea');
+    var saveBtn = document.getElementById('scriptSaveBtn');
+    var status = document.getElementById('scriptModalStatus');
+    ta.value = '';
+    ta.placeholder = 'GENERATING SCRIPT...';
+    ta.disabled = true;
+    saveBtn.disabled = true;
+    status.textContent = 'Generating with Claude…';
+    try{
+      var res = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: 'You write short, punchy vertical video scripts (30-45 seconds) for a contractor-marketing content creator. Open with a strong hook line in the first sentence. Plain text only — no markdown formatting, no camera directions unless essential to the joke or beat.',
+          prompt: 'Write a short-form video script for this content idea: "' + topic + '"'
+        })
+      });
+      if(!res.ok){
+        var errText = '';
+        try{ errText = await res.text(); }catch(e){}
+        throw new Error('Proxy error ' + res.status + (errText ? (': ' + errText.slice(0,200)) : ''));
+      }
+      var data = await res.json();
+      if(data.error) throw new Error(data.error);
+      ta.value = data.script || '';
+      ta.disabled = false;
+      saveBtn.disabled = false;
+      status.textContent = 'Generated — edit freely before saving.';
+    }catch(err){
+      status.textContent = 'Generation failed: ' + err.message + ' — is proxy.js running on :3001?';
+      ta.placeholder = 'Generation failed. Click Regenerate to try again, or write your own script here.';
+      ta.disabled = false;
+    }
+  }
+
+  document.getElementById('scriptRegenBtn').addEventListener('click', function(){
+    var topic = document.getElementById('scriptModalTopic').textContent;
+    generateScript(topic);
+  });
+  document.getElementById('scriptCancelBtn').addEventListener('click', closeScriptModal);
+  document.getElementById('scriptModalOverlay').addEventListener('click', function(e){ if(e.target === this) closeScriptModal(); });
+
+  document.getElementById('scriptSaveBtn').addEventListener('click', function(){
+    if(!currentScriptCardId) return;
+    var text = document.getElementById('scriptTextarea').value.trim();
+    if(!text){ showToast('Nothing to save yet'); return; }
+    setSavedScript(currentScriptCardId, text);
+    var card = document.querySelector('.kanban-card[data-id="' + currentScriptCardId + '"]');
+    if(card){
+      markCardScripted(card);
+      var scriptingBody = document.querySelector('.kanban-col[data-col="scripting"] .kanban-col-body');
+      if(card.parentElement !== scriptingBody){
+        scriptingBody.appendChild(card);
+        updateCounts();
+      }
+    }
+    closeScriptModal();
+    serializeBoard();
+    showToast('Script saved — moved to Scripting');
+  });
+
+  function attachScriptButton(card){
+    var id = card.dataset.id;
+    var titleEl = card.querySelector('.kanban-card-title');
+    var topic = titleEl ? titleEl.textContent : 'Untitled idea';
+
+    var existing = getSavedScript(id);
+    if(existing) markCardScripted(card);
+
+    var meta = card.querySelector('.kanban-card-meta');
+    if(meta && !meta.querySelector('.script-btn')){
+      var btn = document.createElement('button');
+      btn.className = 'script-btn';
+      btn.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Script';
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        openScriptModal(card.dataset.id, (card.querySelector('.kanban-card-title')||{}).textContent || topic, getSavedScript(card.dataset.id));
+      });
+      meta.insertBefore(btn, meta.firstChild);
+    }
+
+    card.addEventListener('click', function(e){
+      if(card.dataset.hasScript === '1' && !e.target.closest('.script-btn')){
+        openScriptModal(card.dataset.id, (card.querySelector('.kanban-card-title')||{}).textContent || topic, getSavedScript(card.dataset.id));
+      }
+    });
+  }
+
+  document.querySelectorAll('.kanban-col[data-col="ideas"] .kanban-card').forEach(attachScriptButton);
+
+  /* ---------- Board persistence (localStorage) ---------- */
+  var BOARD_KEY = 'ctrl_pipeline_board_v2';
+  var IDEAS_QUEUE_KEY = 'ctrl_pipeline_ideas';
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function serializeBoard(){
+    var data = {};
+    document.querySelectorAll('.kanban-col').forEach(function(col){
+      var key = col.dataset.col;
+      var cards = [];
+      col.querySelectorAll('.kanban-card').forEach(function(card){
+        var titleEl = card.querySelector('.kanban-card-title');
+        var avatarEl = card.querySelector('.kanban-avatar');
+        var badgeEl = card.querySelector('.schedule-badge');
+        cards.push({
+          id: card.dataset.id,
+          title: titleEl ? titleEl.textContent : '',
+          avatar: avatarEl ? avatarEl.textContent : 'SC',
+          scheduleLabel: badgeEl ? badgeEl.textContent.trim() : null
+        });
+      });
+      data[key] = cards;
+    });
+    try{ localStorage.setItem(BOARD_KEY, JSON.stringify(data)); }catch(e){}
+  }
+
+  function loadBoard(){
+    try{
+      var raw = localStorage.getItem(BOARD_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+
+  function createCardElement(item){
+    var card = document.createElement('div');
+    card.className = 'kanban-card';
+    card.draggable = true;
+    card.dataset.id = item.id;
+
+    var badgeHTML = item.scheduleLabel
+      ? '<div class="schedule-badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>' + escapeHtml(item.scheduleLabel) + '</div>'
+      : '';
+    var gripHTML = '<div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div>';
+    var topHTML = '<div class="kanban-card-top"><div class="kanban-card-title">' + escapeHtml(item.title) + '</div>' + gripHTML + '</div>';
+    var metaHTML = '<div class="kanban-card-meta"><span class="kanban-avatar">' + escapeHtml(item.avatar || 'SC') + '</span></div>';
+
+    card.innerHTML = badgeHTML + topHTML + metaHTML;
+    attachDragHandlers(card);
+    return card;
+  }
+
+  function attachScriptViewerOnly(card){
+    var id = card.dataset.id;
+    var titleEl = card.querySelector('.kanban-card-title');
+    var topic = titleEl ? titleEl.textContent : 'Untitled idea';
+    if(getSavedScript(id)) markCardScripted(card);
+    card.addEventListener('click', function(){
+      if(card.dataset.hasScript === '1'){
+        openScriptModal(card.dataset.id, (card.querySelector('.kanban-card-title')||{}).textContent || topic, getSavedScript(card.dataset.id));
+      }
+    });
+  }
+
+  function restoreBoard(data){
+    Object.keys(data).forEach(function(colKey){
+      var col = document.querySelector('.kanban-col[data-col="' + colKey + '"]');
+      if(!col) return;
+      var body = col.querySelector('.kanban-col-body');
+      body.innerHTML = '';
+      (data[colKey] || []).forEach(function(item){
+        var card = createCardElement(item);
+        body.appendChild(card);
+        if(colKey === 'ideas' || colKey === 'scripting'){
+          attachScriptButton(card);
+        } else {
+          attachScriptViewerOnly(card);
+        }
+      });
+    });
+    updateCounts();
+  }
+
+  function loadIdeasQueue(){
+    try{
+      var raw = localStorage.getItem(IDEAS_QUEUE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function clearIdeasQueue(){ try{ localStorage.removeItem(IDEAS_QUEUE_KEY); }catch(e){} }
+
+  function injectQueuedIdeas(){
+    var queue = loadIdeasQueue();
+    if(!queue.length) return false;
+    var ideasBody = document.querySelector('.kanban-col[data-col="ideas"] .kanban-col-body');
+    queue.forEach(function(entry, i){
+      var item = {
+        id: entry.id || ('ext-' + Date.now() + '-' + i),
+        title: entry.title || 'Untitled idea',
+        avatar: 'SC'
+      };
+      var card = createCardElement(item);
+      ideasBody.appendChild(card);
+      attachScriptButton(card);
+    });
+    clearIdeasQueue();
+    updateCounts();
+    var src = queue[0].source ? (' from ' + queue[0].source) : '';
+    showToast(queue.length + ' idea' + (queue.length > 1 ? 's' : '') + ' pulled in' + src);
+    return true;
+  }
+
+  (function initBoard(){
+    var saved = loadBoard();
+    if(saved) restoreBoard(saved);
+    injectQueuedIdeas();
+    serializeBoard();
+  })();
+</script>

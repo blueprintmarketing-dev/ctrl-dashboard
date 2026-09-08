@@ -1,0 +1,13 @@
+{
+  "name": "ctrl-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CTRL — Blueprint Marketing operations dashboard",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

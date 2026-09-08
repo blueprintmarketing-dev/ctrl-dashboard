@@ -1,0 +1,688 @@
+<title>CTRL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #060a0c;
+    --panel: #0b1417;
+    --panel-raised: #101c20;
+    --panel-inset: #081114;
+    --line: #1c2c30;
+    --line-soft: #132024;
+    --cyan: #3ee8de;
+    --cyan-dim: #1f7a76;
+    --cyan-glow: rgba(62,232,222,.32);
+    --cyan-glow-soft: rgba(62,232,222,.14);
+    --ink: #dcefee;
+    --ink-dim: #82999c;
+    --ink-faint: #47585b;
+    --good: #38d97a;
+    --good-glow: rgba(56,217,122,.16);
+    --warn: #f0a83c;
+    --warn-glow: rgba(240,168,60,.16);
+    --crit: #ff5470;
+    --crit-glow: rgba(255,84,112,.16);
+    --font-display: 'Orbitron', 'Arial Narrow', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+    --font-body: 'Outfit', 'Segoe UI', sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  body{ background: var(--void); color: var(--ink); font-family: var(--font-body); overflow:hidden; }
+  ::selection{ background: var(--cyan-glow); color: var(--ink); }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); border-radius:5px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--cyan-dim); }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+
+  .shell{
+    display:flex; height:100vh; width:100%; position:relative;
+    background:
+      radial-gradient(760px 420px at 18% -8%, var(--cyan-glow-soft), transparent 62%),
+      radial-gradient(600px 380px at 96% 8%, rgba(62,232,222,.06), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      repeating-linear-gradient(90deg, rgba(220,239,238,.028) 0 1px, transparent 1px 42px),
+      var(--void);
+  }
+
+  /* Left rail nav — shared across all CTRL pages */
+  .rail{ width:62px; flex:0 0 62px; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:16px 0 18px; background: var(--panel); border-right:1px solid var(--line); position:relative; z-index:5; }
+  .rail-top, .rail-mid, .rail-bottom{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .rail-mid{ gap:4px; }
+  .brand{ width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cyan-dim); border-radius:9px; color: var(--cyan); box-shadow: 0 0 14px var(--cyan-glow-soft); margin-bottom:6px; }
+  .brand svg{ width:18px; height:18px; }
+  .rail-divider{ width:26px; height:1px; background:var(--line); margin:10px 0; }
+  .nav-btn{ position:relative; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px; color: var(--ink-faint); transition: color .15s ease, background-color .15s ease; }
+  .nav-btn svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .nav-btn:hover, .nav-btn:focus-visible{ color: var(--ink); background: var(--panel-raised); outline:none; }
+  .nav-btn.active{ color: var(--void); background: var(--cyan); box-shadow: 0 0 16px var(--cyan-glow); }
+  .nav-btn.active svg{ stroke: var(--void); }
+  .nav-btn::after{ content: attr(data-label); position:absolute; left:52px; top:50%; transform: translateY(-50%) translateX(-4px); background: var(--panel-raised); border:1px solid var(--line); color: var(--ink); font-family: var(--font-body); font-size:11.5px; font-weight:500; letter-spacing:.02em; padding:5px 9px; border-radius:6px; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity .12s ease, transform .12s ease; z-index:20; }
+  .nav-btn:hover::after, .nav-btn:focus-visible::after{ opacity:1; transform: translateY(-50%) translateX(0); }
+  .avatar{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: var(--panel-inset); border:1px solid var(--line); font-family: var(--font-mono); font-size:11px; color: var(--cyan); }
+
+  .main{ flex:1 1 auto; min-width:0; height:100%; overflow-y:auto; padding: 26px 30px 56px; position:relative; z-index:2; }
+  .topbar{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:22px; }
+  .page-label{ font-family: var(--font-display); font-size:13px; font-weight:700; letter-spacing:.16em; color: var(--ink); text-transform:uppercase; }
+  .page-label span{ color: var(--cyan); }
+  .topbar-meta{ display:flex; align-items:center; gap:18px; font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .status-chip{ display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; background: var(--panel); }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; }
+  .dot.good{ background: var(--good); box-shadow:0 0 6px var(--good); }
+  .dot.warn{ background: var(--warn); box-shadow:0 0 6px var(--warn); }
+  .dot.crit{ background: var(--crit); box-shadow:0 0 6px var(--crit); }
+  .dot.cyan{ background: var(--cyan); box-shadow:0 0 6px var(--cyan); }
+  .dot.pulse{ animation: pulse 2.2s ease-in-out infinite; }
+  .clock{ color: var(--ink); }
+
+  .briefing{ display:grid; grid-template-columns: 1.1fr 1fr 1.5fr; border:1px solid var(--cyan-dim); border-radius:12px; background: linear-gradient(180deg, var(--panel-raised), var(--panel)); box-shadow: 0 0 30px var(--cyan-glow-soft), inset 0 0 0 1px rgba(62,232,222,.04); overflow:hidden; margin-bottom:30px; }
+  .brief-cell{ padding:18px 22px; border-right:1px solid var(--line-soft); display:flex; flex-direction:column; gap:8px; justify-content:center; }
+  .brief-cell:last-child{ border-right:none; }
+  .brief-eyebrow{ font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color: var(--ink-dim); }
+  .brief-value{ font-family: var(--font-display); font-size:30px; font-weight:700; color: var(--ink); line-height:1; font-variant-numeric: tabular-nums; }
+  .brief-value small{ font-family: var(--font-body); font-size:13px; font-weight:500; color: var(--ink-dim); margin-left:6px; }
+  .brief-sub{ font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .brief-top-post{ display:flex; flex-direction:column; gap:6px; }
+  .brief-top-title{ font-size:15px; font-weight:600; color: var(--ink); }
+  .brief-top-row{ display:flex; align-items:center; gap:10px; font-family: var(--font-mono); font-size:12px; color: var(--ink-dim); }
+  .platform-chip{ display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border:1px solid var(--line); border-radius:5px; font-family: var(--font-mono); font-size:10.5px; letter-spacing:.03em; color: var(--ink-dim); }
+  .up{ color: var(--good); }
+
+  .section{ margin-bottom:34px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .section-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color: var(--ink); }
+  .section-count{ font-family: var(--font-mono); font-size:11.5px; color: var(--ink-faint); }
+
+  .social-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+  .social-card{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px 18px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .social-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); }
+  .social-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .social-name{ display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color: var(--ink); }
+  .social-name svg{ width:16px; height:16px; stroke: var(--ink-dim); fill:none; stroke-width:1.6; }
+  .badge{ font-family: var(--font-mono); font-size:11px; padding:2px 7px; border-radius:5px; font-weight:500; }
+  .badge.good{ color: var(--good); background: var(--good-glow); }
+  .badge.live{ color: var(--good); background: var(--good-glow); border:1px solid rgba(56,217,122,.35); letter-spacing:.03em; cursor:help; }
+
+  .section-head-actions{ display:flex; align-items:center; gap:10px; }
+  .refresh-btn{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--cyan-dim); border-radius:7px; padding:5px 12px; color: var(--cyan); background:none; font-family: var(--font-mono); font-size:11px; letter-spacing:.02em; transition: background-color .15s ease, box-shadow .15s ease; }
+  .refresh-btn:hover:not(:disabled), .refresh-btn:focus-visible{ background: var(--cyan-glow-soft); box-shadow: 0 0 12px var(--cyan-glow-soft); outline:none; }
+  .refresh-btn:disabled{ opacity:.55; cursor:default; }
+  .spin{ display:inline-block; }
+  .spin.spinning{ animation: spin .8s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .key-btn{ display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border:1px solid var(--line); border-radius:7px; color: var(--ink-faint); background:none; transition: border-color .15s ease, color .15s ease; }
+  .key-btn:hover, .key-btn:focus-visible{ border-color: var(--cyan-dim); color: var(--cyan); outline:none; }
+  .key-btn svg{ width:13px; height:13px; }
+  .loading-dim{ opacity:.4; filter: saturate(.55); pointer-events:none; transition: opacity .2s ease, filter .2s ease; }
+
+  .modal-overlay{ position:fixed; inset:0; background: rgba(3,6,7,.7); backdrop-filter: blur(2px); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition: opacity .15s ease; z-index:60; }
+  .modal-overlay.open{ opacity:1; pointer-events:auto; }
+  .modal{ width:360px; background: var(--panel-raised); border:1px solid var(--cyan-dim); border-radius:12px; padding:20px; box-shadow: 0 0 40px var(--cyan-glow-soft), 0 20px 60px rgba(0,0,0,.5); transform: translateY(8px); transition: transform .15s ease; }
+  .modal-overlay.open .modal{ transform: translateY(0); }
+  .modal-title{ font-family: var(--font-display); font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color: var(--ink); margin-bottom:4px; }
+  .modal-sub{ font-size:12px; color: var(--ink-dim); margin-bottom:16px; line-height:1.55; }
+  .modal-field{ margin-bottom:14px; }
+  .modal-field label{ display:block; font-family: var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color: var(--ink-faint); margin-bottom:6px; }
+  .modal-field input{ width:100%; background: var(--panel-inset); border:1px solid var(--line-soft); border-radius:7px; color: var(--ink); font-family: var(--font-mono); font-size:12.5px; padding:8px 10px; }
+  .modal-field input:focus{ outline:none; border-color: var(--cyan-dim); box-shadow:0 0 0 3px var(--cyan-glow-soft); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; align-items:center; }
+  .modal-actions .spacer{ flex:1; }
+  .modal-btn{ font-family: var(--font-mono); font-size:11.5px; padding:7px 14px; border-radius:7px; border:1px solid var(--line); color: var(--ink-dim); background:none; }
+  .modal-btn:hover{ color: var(--ink); border-color: var(--ink-faint); }
+  .modal-btn.primary{ border-color: var(--cyan-dim); color: var(--void); background: var(--cyan); font-weight:600; box-shadow:0 0 14px var(--cyan-glow); }
+  .modal-btn.primary:hover{ filter:brightness(1.08); }
+  .modal-btn.danger{ color: var(--crit); border-color: rgba(255,84,112,.3); }
+  .modal-btn.danger:hover{ border-color: var(--crit); }
+
+  .toast{ position:fixed; bottom:22px; left:50%; transform: translateX(-50%) translateY(12px); background: var(--panel-raised); border:1px solid var(--cyan-dim); color: var(--ink); font-family: var(--font-mono); font-size:12px; padding:9px 16px; border-radius:8px; box-shadow: 0 0 20px var(--cyan-glow-soft); opacity:0; pointer-events:none; transition: opacity .18s ease, transform .18s ease; z-index:50; max-width:320px; text-align:center; }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+  .social-value{ font-family: var(--font-display); font-size:24px; font-weight:700; color: var(--ink); margin-bottom:2px; font-variant-numeric: tabular-nums; }
+  .social-caption{ font-family: var(--font-mono); font-size:11px; color: var(--ink-faint); margin-bottom:10px; }
+  .spark{ width:100%; height:40px; display:block; }
+
+  .team-grid{ display:grid; grid-template-columns: repeat(5, 1fr); gap:14px; }
+  .agent-card{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:15px; display:flex; flex-direction:column; gap:11px; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+  .agent-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); transform: translateY(-2px); }
+  .agent-top{ display:flex; align-items:center; gap:10px; }
+  .agent-ring{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; background: var(--panel-inset); border:1px solid var(--line); flex:0 0 auto; }
+  .agent-ring.active{ border-color: var(--cyan-dim); box-shadow: 0 0 10px var(--cyan-glow-soft); color: var(--cyan); }
+  .agent-ring.idle{ color: var(--ink-faint); }
+  .agent-ring.processing{ color: var(--warn); border-color: rgba(240,168,60,.35); }
+  .agent-ring svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.6; }
+  .agent-name{ font-family: var(--font-mono); font-size:13px; font-weight:600; color: var(--ink); letter-spacing:.03em; }
+  .agent-role{ font-size:11px; color: var(--ink-dim); }
+  .agent-status{ display:flex; align-items:center; gap:6px; font-family: var(--font-mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; }
+  .agent-status.active{ color: var(--good); }
+  .agent-status.idle{ color: var(--ink-faint); }
+  .agent-status.processing{ color: var(--warn); }
+  .agent-task{ font-size:12px; color: var(--ink-dim); line-height:1.45; min-height:34px; }
+  .progress-track{ height:4px; border-radius:3px; background: var(--panel-inset); overflow:hidden; }
+  .progress-fill{ height:100%; border-radius:3px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); }
+  .progress-fill.warn{ background: var(--warn); box-shadow: 0 0 8px var(--warn-glow); }
+  .progress-meta{ display:flex; justify-content:space-between; font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); }
+
+  .kanban{ display:grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap:12px; overflow-x:auto; padding-bottom:4px; }
+  .kanban-col{ background: var(--panel-inset); border:1px solid var(--line); border-radius:10px; padding:11px; min-width:0; display:flex; flex-direction:column; gap:9px; }
+  .kanban-col-head{ display:flex; align-items:center; justify-content:space-between; padding:2px 3px 6px; border-bottom:1px solid var(--line-soft); margin-bottom:2px; }
+  .kanban-col-title{ font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color: var(--ink-dim); }
+  .kanban-col-count{ font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); background: var(--panel); border:1px solid var(--line); border-radius:10px; padding:1px 6px; }
+  .kanban-card{ background: var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 11px; display:flex; flex-direction:column; gap:8px; transition: border-color .15s ease; }
+  .kanban-card:hover{ border-color: var(--cyan-dim); }
+  .kanban-card-title{ font-size:12px; line-height:1.4; color: var(--ink); }
+  .kanban-card-meta{ display:flex; align-items:center; justify-content:flex-end; }
+  .kanban-tag{ font-family: var(--font-mono); font-size:10px; color: var(--ink-faint); border:1px solid var(--line); border-radius:4px; padding:1px 5px; }
+  .kanban-avatar{ width:18px; height:18px; border-radius:50%; background: var(--panel-inset); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size:8.5px; color: var(--cyan); }
+
+  .sop-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+  .sop-card{ background: var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px; display:flex; flex-direction:column; gap:11px; transition: border-color .18s ease, box-shadow .18s ease; }
+  .sop-card:hover{ border-color: var(--cyan-dim); box-shadow: 0 0 22px var(--cyan-glow-soft); }
+  .sop-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .sop-icon{ width:32px; height:32px; border-radius:8px; background: var(--panel-inset); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color: var(--cyan); flex:0 0 auto; }
+  .sop-icon svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.6; }
+  .sop-name{ font-size:13.5px; font-weight:600; color: var(--ink); margin-bottom:3px; }
+  .sop-desc{ font-size:12px; color: var(--ink-dim); line-height:1.5; }
+  .sop-meta{ display:flex; align-items:center; justify-content:space-between; font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); padding-top:9px; border-top:1px solid var(--line-soft); }
+  .run-btn{ display:flex; align-items:center; gap:6px; border:1px solid var(--cyan-dim); border-radius:7px; padding:5px 11px; color: var(--cyan); font-family: var(--font-mono); font-size:11px; letter-spacing:.03em; transition: background-color .15s ease, box-shadow .15s ease; }
+  .run-btn:hover, .run-btn:focus-visible{ background: var(--cyan-glow-soft); box-shadow: 0 0 12px var(--cyan-glow-soft); outline:none; }
+  .run-btn svg{ width:9px; height:9px; }
+
+  .activity{ width:272px; flex:0 0 272px; height:100%; border-left:1px solid var(--line); background: var(--panel); display:flex; flex-direction:column; z-index:5; }
+  .activity-head{ padding:20px 20px 14px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; }
+  .activity-title{ font-family: var(--font-display); font-size:11.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color: var(--ink); }
+  .activity-list{ flex:1 1 auto; overflow-y:auto; padding:14px 16px 24px; display:flex; flex-direction:column; gap:2px; }
+  .feed-item{ display:flex; gap:10px; padding:10px 6px; border-radius:8px; }
+  .feed-item:hover{ background: var(--panel-raised); }
+  .feed-rail{ display:flex; flex-direction:column; align-items:center; padding-top:4px; }
+  .feed-line{ width:1px; flex:1 1 auto; background: var(--line-soft); margin-top:5px; }
+  .feed-item:last-child .feed-line{ display:none; }
+  .feed-body{ min-width:0; padding-bottom:2px; }
+  .feed-time{ font-family: var(--font-mono); font-size:10.5px; color: var(--ink-faint); margin-bottom:3px; }
+  .feed-text{ font-size:12px; line-height:1.5; color: var(--ink-dim); }
+  .feed-text b{ color: var(--ink); font-weight:600; }
+  .feed-text .tag{ color: var(--cyan); }
+
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .reveal{ animation: fadeUp .55s cubic-bezier(.16,.8,.4,1) both; }
+  @media (prefers-reduced-motion: reduce){ .reveal{ animation:none; opacity:1; transform:none; } .dot.pulse{ animation:none; } }
+
+  @media (max-width: 1180px){ .activity{ display:none; } .team-grid{ grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 860px){ .social-grid, .sop-grid{ grid-template-columns: 1fr; } .team-grid{ grid-template-columns: repeat(2, 1fr); } .briefing{ grid-template-columns: 1fr; } .brief-cell{ border-right:none; border-bottom:1px solid var(--line-soft); } }
+</style>
+
+<div class="shell">
+
+  <nav class="rail">
+    <div class="rail-top">
+      <a class="brand" href="ai-dashboard.html" title="CTRL — Home">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none"/><line x1="10" y1="1.4" x2="10" y2="4.4" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="15.6" x2="10" y2="18.6" stroke="currentColor" stroke-width="1.4"/><line x1="1.4" y1="10" x2="4.4" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="15.6" y1="10" x2="18.6" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>
+      </a>
+    </div>
+    <div class="rail-mid">
+      <a class="nav-btn active" data-label="Overview" aria-label="Overview" aria-current="page" href="ai-dashboard.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="2" width="7" height="7" rx="1.2"/><rect x="11" y="2" width="7" height="7" rx="1.2"/><rect x="2" y="11" width="7" height="7" rx="1.2"/><rect x="11" y="11" width="7" height="7" rx="1.2"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Research" aria-label="Research" href="research.html">
+        <svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Pipeline" aria-label="Pipeline" href="pipeline.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="4" width="4" height="13" rx="1"/><rect x="8" y="4" width="4" height="8" rx="1"/><rect x="14" y="4" width="4" height="11" rx="1"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Performance" aria-label="Performance" href="performance.html">
+        <svg viewBox="0 0 20 20"><rect x="2" y="11" width="3.4" height="7" rx=".8"/><rect x="8.3" y="6" width="3.4" height="12" rx=".8"/><rect x="14.6" y="2" width="3.4" height="16" rx=".8"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Growth" aria-label="Growth" href="growth.html">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><circle cx="10" cy="10" r="4.2"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Agents" aria-label="Agents" href="agents.html">
+        <svg viewBox="0 0 20 20"><rect x="4" y="6.4" width="12" height="9.6" rx="2"/><circle cx="7.8" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="12.2" cy="11.2" r="1.15" fill="currentColor" stroke="none"/><line x1="10" y1="6.4" x2="10" y2="3"/><circle cx="10" cy="2" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <a class="nav-btn" data-label="Clients" aria-label="Clients" href="clients.html">
+        <svg viewBox="0 0 20 20"><rect x="2.5" y="7.4" width="15" height="9.6" rx="1.6"/><path d="M7.2 7.4V5.6a2 2 0 0 1 2-2h1.6a2 2 0 0 1 2 2v1.8"/><line x1="2.5" y1="11.6" x2="17.5" y2="11.6"/></svg>
+      </a>
+    </div>
+    <div class="rail-bottom">
+      <div class="rail-divider"></div>
+      <div class="avatar" title="contact@blueprintmarketing.info">CB</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar reveal">
+      <div class="page-label">CTRL <span>/ OVERVIEW</span></div>
+      <div class="topbar-meta">
+        <span class="status-chip"><span class="dot good pulse"></span>ALL SYSTEMS NOMINAL</span>
+        <span>UPTIME <span style="color:var(--ink)">14D 06H</span></span>
+        <span class="clock" id="clock">--:--:--</span>
+      </div>
+    </div>
+
+    <div class="briefing reveal" style="animation-delay:.04s">
+      <div class="brief-cell">
+        <div class="brief-eyebrow">Scheduled Today</div>
+        <div class="brief-value">7 <small>posts queued</small></div>
+        <div class="brief-sub">Next: 14:30 · Instagram</div>
+      </div>
+      <div class="brief-cell">
+        <div class="brief-eyebrow">Scripts Due Today</div>
+        <div class="brief-value">4 <small>drafts</small></div>
+        <div class="brief-sub">2 in review · 2 unassigned</div>
+      </div>
+      <div class="brief-cell">
+        <div class="brief-eyebrow">Top Performing Post</div>
+        <div class="brief-top-post" id="topPostBox">
+          <div class="brief-top-title" id="topPostTitle">"Connections take you further in life"</div>
+          <div class="brief-top-row">
+            <span class="platform-chip">INSTAGRAM</span>
+            <span id="topPostViews">13.2K views</span>
+            <span class="up">real, live</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.06s">
+        <div class="section-title">Instagram Performance</div>
+        <div class="section-head-actions">
+          <div class="section-count" id="lastRefreshLabel">Last 7 posts</div>
+          <button class="key-btn" id="tokenBtn" title="Manage Apify token" aria-label="Manage Apify token"><svg viewBox="0 0 20 20"><circle cx="7" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.3 10.7L16 4M13.5 6.5L15.5 8.5M11.5 8.5L13 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="refresh-btn" id="refreshBtn"><span class="spin" id="refreshIcon">↻</span> Refresh Live Data</button>
+        </div>
+      </div>
+      <div class="social-grid" id="igGrid">
+        <div class="social-card reveal" style="animation-delay:.08s">
+          <div class="social-head">
+            <div class="social-name"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="15" height="15" rx="4.5"/><circle cx="10" cy="10" r="3.6"/><circle cx="14.3" cy="5.7" r=".9" fill="currentColor" stroke="none"/></svg>Instagram</div>
+            <span class="badge live" id="igLiveBadge" title="Pulled via Apify · synced Sep 8, 01:47">● LIVE</span>
+          </div>
+          <div class="social-value" id="igFollowersValue">174</div>
+          <div class="social-caption" id="igFollowersCaption">followers · 20 posts total</div>
+          <svg class="spark" id="igSparkSvg" viewBox="0 0 120 40" preserveAspectRatio="none">
+            <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--cyan)" stop-opacity=".35"/><stop offset="100%" stop-color="var(--cyan)" stop-opacity="0"/></linearGradient></defs>
+            <line x1="0" y1="36" x2="120" y2="36" stroke="var(--line-soft)" stroke-width="1"/>
+            <polygon points="0,33.0 20,34.4 40,21.6 60,5.6 80,29.7 100,29.2 120,32.2 120,36 0,36" fill="url(#g2)" stroke="none"/>
+            <polyline points="0,33.0 20,34.4 40,21.6 60,5.6 80,29.7 100,29.2 120,32.2" fill="none" stroke="var(--cyan)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="120" cy="32.2" r="2.4" fill="var(--void)" stroke="var(--cyan)" stroke-width="1.6"/>
+          </svg>
+        </div>
+        <div class="social-card reveal" style="animation-delay:.11s">
+          <div class="social-head">
+            <div class="social-name"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="7" y1="3" x2="7" y2="17"/><line x1="3" y1="8" x2="17" y2="8"/></svg>Posts</div>
+          </div>
+          <div class="social-value" id="igPostsValue">20</div>
+          <div class="social-caption">total on profile</div>
+        </div>
+        <div class="social-card reveal" style="animation-delay:.14s">
+          <div class="social-head">
+            <div class="social-name"><svg viewBox="0 0 20 20"><path d="M3 15l4-6 3 3 6-8"/><path d="M12.5 4H16v3.5"/></svg>Avg. Engagement</div>
+          </div>
+          <div class="social-value" id="igAvgEngValue">25.2%</div>
+          <div class="social-caption">across last 7 posts</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.10s">
+        <div class="section-title">AI Team</div>
+        <div class="section-count">3 active · 1 processing · 1 idle</div>
+      </div>
+      <div class="team-grid">
+        <div class="agent-card reveal" style="animation-delay:.12s">
+          <div class="agent-top">
+            <div class="agent-ring active"><svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg></div>
+            <div><div class="agent-name">SCOUT</div><div class="agent-role">Trend Research</div></div>
+          </div>
+          <div class="agent-status active"><span class="dot good pulse"></span>Active</div>
+          <div class="agent-task">Scanning 340 sources for rising audio &amp; formats</div>
+          <div class="progress-track"><div class="progress-fill" style="width:68%"></div></div>
+          <div class="progress-meta"><span>68%</span><span>~4m left</span></div>
+        </div>
+        <div class="agent-card reveal" style="animation-delay:.15s">
+          <div class="agent-top">
+            <div class="agent-ring active"><svg viewBox="0 0 20 20"><path d="M4 15.5L4.8 12l8-8a1.8 1.8 0 0 1 2.5 2.5l-8 8-3.3.8z"/></svg></div>
+            <div><div class="agent-name">DRAFT</div><div class="agent-role">Script Generation</div></div>
+          </div>
+          <div class="agent-status active"><span class="dot good pulse"></span>Active</div>
+          <div class="agent-task">Writing hook variants for Southwest Hardscape</div>
+          <div class="progress-track"><div class="progress-fill" style="width:42%"></div></div>
+          <div class="progress-meta"><span>42%</span><span>~9m left</span></div>
+        </div>
+        <div class="agent-card reveal" style="animation-delay:.18s">
+          <div class="agent-top">
+            <div class="agent-ring processing"><svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="10" rx="1.6"/><line x1="7.5" y1="17" x2="12.5" y2="17"/><line x1="10" y1="14" x2="10" y2="17"/></svg></div>
+            <div><div class="agent-name">CUT</div><div class="agent-role">Video Editing</div></div>
+          </div>
+          <div class="agent-status processing"><span class="dot warn pulse"></span>Processing</div>
+          <div class="agent-task">Rendering 3 export formats for ep. 114</div>
+          <div class="progress-track"><div class="progress-fill warn" style="width:91%"></div></div>
+          <div class="progress-meta"><span>91%</span><span>~1m left</span></div>
+        </div>
+        <div class="agent-card reveal" style="animation-delay:.21s">
+          <div class="agent-top">
+            <div class="agent-ring idle"><svg viewBox="0 0 20 20"><path d="M3 16l1-3.5L13 3.5a1.6 1.6 0 0 1 2.5 2L6.5 15l-3.5 1z"/><line x1="10.5" y1="6" x2="14" y2="9.5"/></svg></div>
+            <div><div class="agent-name">SHIP</div><div class="agent-role">Scheduling &amp; Publish</div></div>
+          </div>
+          <div class="agent-status idle"><span class="dot"></span>Idle</div>
+          <div class="agent-task">Queue clear — next post at 14:30</div>
+          <div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>
+          <div class="progress-meta"><span>Queue empty</span><span>—</span></div>
+        </div>
+        <div class="agent-card reveal" style="animation-delay:.24s">
+          <div class="agent-top">
+            <div class="agent-ring active"><svg viewBox="0 0 20 20"><rect x="2" y="11" width="3.2" height="6.5"/><rect x="8.4" y="6.5" width="3.2" height="11"/><rect x="14.8" y="3" width="3.2" height="14.5"/></svg></div>
+            <div><div class="agent-name">LENS</div><div class="agent-role">Performance Analysis</div></div>
+          </div>
+          <div class="agent-status active"><span class="dot good pulse"></span>Active</div>
+          <div class="agent-task">Building weekly digest for 6 clients</div>
+          <div class="progress-track"><div class="progress-fill" style="width:55%"></div></div>
+          <div class="progress-meta"><span>55%</span><span>~12m left</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.14s">
+        <div class="section-title">Content Pipeline</div>
+        <div class="section-count">17 in motion · <a href="pipeline.html" style="color:var(--cyan)">open board</a></div>
+      </div>
+      <div class="kanban reveal" style="animation-delay:.16s">
+        <div class="kanban-col">
+          <div class="kanban-col-head"><span class="kanban-col-title">Ideas</span><span class="kanban-col-count">4</span></div>
+          <div class="kanban-card"><div class="kanban-card-title">Why the lowest bid loses the best jobs</div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">The permit mistake that kills a 6-figure job</div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Client Q&amp;A round 12</div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Founder story teaser</div><div class="kanban-card-meta"><span class="kanban-avatar">SC</span></div></div>
+        </div>
+        <div class="kanban-col">
+          <div class="kanban-col-head"><span class="kanban-col-title">Scripting</span><span class="kanban-col-count">3</span></div>
+          <div class="kanban-card"><div class="kanban-card-title">The $100K estimate nobody believes is real</div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">3 signs you're pricing jobs wrong</div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Why "we'll think about it" really means no</div><div class="kanban-card-meta"><span class="kanban-avatar">DR</span></div></div>
+        </div>
+        <div class="kanban-col">
+          <div class="kanban-col-head"><span class="kanban-col-title">Editing</span><span class="kanban-col-count">3</span></div>
+          <div class="kanban-card"><div class="kanban-card-title">Job site walkthrough — Palo Verde cut</div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Founder story teaser, cut 2</div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Client Q&amp;A round 11</div><div class="kanban-card-meta"><span class="kanban-avatar">CT</span></div></div>
+        </div>
+        <div class="kanban-col">
+          <div class="kanban-col-head"><span class="kanban-col-title">Scheduled</span><span class="kanban-col-count">4</span></div>
+          <div class="kanban-card"><div class="kanban-card-title">Lowest bid myth — 14:30</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Permit mistake hook — 16:00</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Weekly recap — 18:00</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Q&amp;A clip — 20:00</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+        </div>
+        <div class="kanban-col">
+          <div class="kanban-col-head"><span class="kanban-col-title">Published</span><span class="kanban-col-count">3</span></div>
+          <div class="kanban-card"><div class="kanban-card-title">Job site proof — before/after</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">3 grip mistakes</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+          <div class="kanban-card"><div class="kanban-card-title">Founder AMA clip</div><div class="kanban-card-meta"><span class="kanban-avatar">SH</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head reveal" style="animation-delay:.18s">
+        <div class="section-title">SOP Library</div>
+        <div class="section-count">6 automations</div>
+      </div>
+      <div class="sop-grid">
+        <div class="sop-card reveal" style="animation-delay:.20s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.6"/><line x1="16.4" y1="16.4" x2="12.6" y2="12.6"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Trend Scan → Brief</div><div class="sop-desc">Pulls rising sounds and formats into a same-day content brief.</div></div>
+          <div class="sop-meta"><span>Daily · 06:00</span><span>Ran 2h ago</span></div>
+        </div>
+        <div class="sop-card reveal" style="animation-delay:.23s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><path d="M4 15.5L4.8 12l8-8a1.8 1.8 0 0 1 2.5 2.5l-8 8-3.3.8z"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Hook Generator</div><div class="sop-desc">Drafts ten opening-line variants from a single script idea.</div></div>
+          <div class="sop-meta"><span>On demand</span><span>Ran 34m ago</span></div>
+        </div>
+        <div class="sop-card reveal" style="animation-delay:.26s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><path d="M3 5.5h14M3 10h14M3 14.5h9"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Auto Caption + Hashtags</div><div class="sop-desc">Generates platform-tuned captions and hashtag sets on export.</div></div>
+          <div class="sop-meta"><span>On publish</span><span>Ran 12m ago</span></div>
+        </div>
+        <div class="sop-card reveal" style="animation-delay:.29s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><rect x="6" y="2" width="8" height="14" rx="2"/><path d="M4 8.5a6 6 0 0 0 12 0M10 16v2.5"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Repurpose → Shorts</div><div class="sop-desc">Cuts long-form video into captioned vertical clips.</div></div>
+          <div class="sop-meta"><span>On upload</span><span>Ran 1h ago</span></div>
+        </div>
+        <div class="sop-card reveal" style="animation-delay:.32s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><rect x="2.5" y="2.5" width="15" height="15" rx="3"/><path d="M2.5 7.5h15M7 2.5v15"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Competitor Teardown</div><div class="sop-desc">Analyzes a competitor's top posts for format patterns.</div></div>
+          <div class="sop-meta"><span>Weekly · Mon 08:00</span><span>Ran 3d ago</span></div>
+        </div>
+        <div class="sop-card reveal" style="animation-delay:.35s">
+          <div class="sop-top"><div class="sop-icon"><svg viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="12" rx="2"/><path d="M2 6.5l8 5 8-5"/></svg></div><button class="run-btn"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2z"/></svg>Run</button></div>
+          <div><div class="sop-name">Client Digest</div><div class="sop-desc">Compiles a performance summary email per client.</div></div>
+          <div class="sop-meta"><span>Weekly · Fri 17:00</span><span>Ran 4d ago</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="activity">
+    <div class="activity-head"><div class="activity-title">Live Activity</div><span class="dot cyan pulse"></span></div>
+    <div class="activity-list">
+      <div class="feed-item"><div class="feed-rail"><span class="dot warn"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">14:47</div><div class="feed-text"><span class="tag">LENS</span> flagged a <b>3.2x spike</b> on "Job site proof — before/after" (Instagram)</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot cyan"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">14:32</div><div class="feed-text"><span class="tag">SCOUT</span> queued 2 new briefs from trending audio</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot good"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">14:28</div><div class="feed-text"><span class="tag">CUT</span> finished render — ep. 114, 3 formats</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot good"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">14:15</div><div class="feed-text"><span class="tag">SHIP</span> published "Job site proof — before/after" to Instagram</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot cyan"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">14:03</div><div class="feed-text"><span class="tag">DRAFT</span> completed 6 hook variants for Southwest Hardscape</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot good"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">13:51</div><div class="feed-text">Client approved "Founder story teaser"</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot warn"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">13:40</div><div class="feed-text"><span class="tag">SCOUT</span> flagged a competitor format shift across 3 accounts</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot cyan"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">13:22</div><div class="feed-text"><span class="tag">CUT</span> started editing "Client Q&amp;A round 11"</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot cyan"></span><div class="feed-line"></div></div><div class="feed-body"><div class="feed-time">13:05</div><div class="feed-text"><span class="tag">SHIP</span> scheduled 4 posts for tomorrow</div></div></div>
+      <div class="feed-item"><div class="feed-rail"><span class="dot good"></span></div><div class="feed-body"><div class="feed-time">12:48</div><div class="feed-text"><span class="tag">LENS</span> sent the weekly digest to 6 clients</div></div></div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="modal-overlay" id="tokenModalOverlay">
+  <div class="modal">
+    <div class="modal-title">Connect Apify</div>
+    <div class="modal-sub">Paste your Apify API token to enable live refresh. It's stored only in this browser (localStorage) and sent directly to api.apify.com — never to Claude, never written into this page.</div>
+    <div class="modal-field"><label>API Token</label><input type="password" id="tokenInput" placeholder="apify_api_..." autocomplete="off"></div>
+    <div class="modal-actions">
+      <button class="modal-btn danger" id="tokenClearBtn" style="display:none;">Clear Token</button>
+      <div class="spacer"></div>
+      <button class="modal-btn" id="tokenCancelBtn">Cancel</button>
+      <button class="modal-btn primary" id="tokenSaveBtn">Save &amp; Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function tick(){ var el=document.getElementById('clock'); if(!el) return; var d=new Date(); el.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()].map(function(n){return String(n).padStart(2,'0')}).join(':'); }
+  tick(); setInterval(tick,1000);
+
+  /* ---------- Live Instagram refresh (Apify) ---------- */
+  var IG_USERNAME = 'blueprintbyangel';
+  var TOKEN_KEY = 'ctrl_apify_token';
+  var CACHE_KEY = 'ctrl_ig_cache';
+  var REFRESH_KEY = 'ctrl_ig_last_refresh';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    if(!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3200);
+  }
+
+  function getToken(){ try{ return localStorage.getItem(TOKEN_KEY) || ''; }catch(e){ return ''; } }
+  function setToken(v){ try{ localStorage.setItem(TOKEN_KEY, v); }catch(e){} }
+  function clearToken(){ try{ localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+
+  function openTokenModal(){
+    var overlay = document.getElementById('tokenModalOverlay');
+    var input = document.getElementById('tokenInput');
+    var clearBtn = document.getElementById('tokenClearBtn');
+    input.value = '';
+    input.placeholder = getToken() ? 'Token saved — paste a new one to replace it' : 'apify_api_...';
+    clearBtn.style.display = getToken() ? 'inline-flex' : 'none';
+    overlay.classList.add('open');
+    setTimeout(function(){ input.focus(); }, 50);
+  }
+  function closeTokenModal(){ document.getElementById('tokenModalOverlay').classList.remove('open'); }
+
+  document.getElementById('tokenBtn').addEventListener('click', openTokenModal);
+  document.getElementById('tokenCancelBtn').addEventListener('click', closeTokenModal);
+  document.getElementById('tokenModalOverlay').addEventListener('click', function(e){ if(e.target === this) closeTokenModal(); });
+  document.getElementById('tokenClearBtn').addEventListener('click', function(){
+    clearToken();
+    closeTokenModal();
+    showToast('Apify token cleared from this browser');
+  });
+  document.getElementById('tokenSaveBtn').addEventListener('click', function(){
+    var v = document.getElementById('tokenInput').value.trim();
+    if(!v){ showToast('Enter a token first'); return; }
+    setToken(v);
+    closeTokenModal();
+    doRefresh();
+  });
+
+  function setLoading(isLoading){
+    var btn = document.getElementById('refreshBtn');
+    var icon = document.getElementById('refreshIcon');
+    var grid = document.getElementById('igGrid');
+    var topPost = document.getElementById('topPostBox');
+    btn.disabled = isLoading;
+    icon.classList.toggle('spinning', isLoading);
+    grid.classList.toggle('loading-dim', isLoading);
+    if(topPost) topPost.classList.toggle('loading-dim', isLoading);
+  }
+
+  async function runInstagramScraper(token){
+    var url = 'https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=' + encodeURIComponent(token);
+    var res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usernames: [IG_USERNAME], includeAboutSection: false })
+    });
+    if(!res.ok){
+      var errText = '';
+      try{ errText = await res.text(); }catch(e){}
+      throw new Error('Apify API error ' + res.status + (errText ? (': ' + errText.slice(0,180)) : ''));
+    }
+    var items = await res.json();
+    if(!items || !items.length) throw new Error('No data returned from the scraper');
+    return items[0];
+  }
+
+  function last7Posts(item){
+    var posts = (item.latestPosts || []).slice().sort(function(a,b){ return new Date(b.timestamp) - new Date(a.timestamp); }).slice(0,7);
+    return posts.map(function(p){
+      var views = (typeof p.videoViewCount === 'number') ? p.videoViewCount : null;
+      var likes = p.likesCount || 0, comments = p.commentsCount || 0;
+      var eng = (views && views > 0) ? ((likes+comments)/views*100) : ((item.followersCount > 0) ? ((likes+comments)/item.followersCount*100) : 0);
+      return { timestamp: p.timestamp, views: views, likes: likes, comments: comments, eng: eng, caption: (p.caption || '').split('\n')[0] };
+    });
+  }
+
+  function logScaleSpark(posts){
+    var valid = posts.filter(function(p){ return typeof p.views === 'number' && p.views > 0; });
+    if(valid.length < 2) return posts.map(function(){ return 50; });
+    var logs = posts.map(function(p){ return Math.log10(Math.max(p.views || 1, 1)); });
+    var min = Math.min.apply(null, logs), max = Math.max.apply(null, logs);
+    if(max === min) return posts.map(function(){ return 50; });
+    return logs.map(function(l){ return 5 + (l-min)/(max-min)*90; });
+  }
+
+  function fmtCompact(n){
+    if(n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(n);
+  }
+
+  function buildSparkMarkup(values){
+    var w = 120, h = 40, base = 36;
+    var stepX = w / (values.length - 1);
+    var y = values.map(function(v){ return base - (v/100)*(base-4); });
+    var line = values.map(function(v,i){ return (i*stepX).toFixed(1)+','+y[i].toFixed(1); }).join(' ');
+    var area = line + ' ' + w + ',' + base + ' 0,' + base;
+    var lastX = (values.length-1)*stepX, lastY = y[y.length-1];
+    return '<defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--cyan)" stop-opacity=".35"/><stop offset="100%" stop-color="var(--cyan)" stop-opacity="0"/></linearGradient></defs>'
+      + '<line x1="0" y1="'+base+'" x2="'+w+'" y2="'+base+'" stroke="var(--line-soft)" stroke-width="1"/>'
+      + '<polygon points="'+area+'" fill="url(#g2)" stroke="none"/>'
+      + '<polyline points="'+line+'" fill="none" stroke="var(--cyan)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastY.toFixed(1)+'" r="2.4" fill="var(--void)" stroke="var(--cyan)" stroke-width="1.6"/>';
+  }
+
+  function saveCache(item){
+    try{
+      localStorage.setItem(CACHE_KEY, JSON.stringify(item));
+      localStorage.setItem(REFRESH_KEY, new Date().toISOString());
+    }catch(e){}
+  }
+  function loadCache(){
+    try{ var raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+  }
+  function loadRefreshTime(){ try{ return localStorage.getItem(REFRESH_KEY); }catch(e){ return null; } }
+
+  function relativeSyncLabel(iso){
+    if(!iso) return 'Last 7 posts';
+    var d = new Date(iso);
+    var mins = Math.round((Date.now() - d.getTime())/60000);
+    var when = mins < 1 ? 'just now' : mins < 60 ? (mins+'m ago') : d.toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    return 'Synced ' + when;
+  }
+
+  function applyData(item){
+    var followers = item.followersCount || 0;
+    var totalPosts = item.postsCount || 0;
+    var posts = last7Posts(item);
+    var sparkVals = logScaleSpark(posts);
+    var avgEng = posts.length ? (posts.reduce(function(s,p){ return s+p.eng; },0)/posts.length) : 0;
+    var topPost = posts.slice().sort(function(a,b){ return (b.views||0)-(a.views||0); })[0];
+
+    document.getElementById('igFollowersValue').textContent = fmtCompact(followers);
+    document.getElementById('igFollowersCaption').textContent = 'followers · ' + totalPosts + ' posts total';
+    document.getElementById('igPostsValue').textContent = totalPosts;
+    document.getElementById('igAvgEngValue').textContent = avgEng.toFixed(1) + '%';
+    document.getElementById('igSparkSvg').innerHTML = buildSparkMarkup(sparkVals);
+
+    var refreshedAt = loadRefreshTime() || new Date().toISOString();
+    var syncLabel = new Date(refreshedAt).toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    var badge = document.getElementById('igLiveBadge');
+    badge.title = 'Pulled via Apify · synced ' + syncLabel;
+    document.getElementById('lastRefreshLabel').textContent = relativeSyncLabel(refreshedAt);
+
+    if(topPost){
+      document.getElementById('topPostTitle').textContent = '"' + topPost.caption + '"';
+      document.getElementById('topPostViews').textContent = (topPost.views ? fmtCompact(topPost.views) : '—') + ' views';
+    }
+  }
+
+  async function doRefresh(){
+    var token = getToken();
+    if(!token){ openTokenModal(); return; }
+    setLoading(true);
+    try{
+      var item = await runInstagramScraper(token);
+      applyData(item);
+      saveCache(item);
+      showToast('Refreshed — ' + (item.followersCount||0) + ' followers, live from Apify');
+    }catch(err){
+      console.error(err);
+      showToast('Refresh failed: ' + err.message);
+    }finally{
+      setLoading(false);
+    }
+  }
+
+  document.getElementById('refreshBtn').addEventListener('click', doRefresh);
+
+  (function initFromCache(){
+    var cached = loadCache();
+    if(cached) applyData(cached);
+  })();
+</script>
