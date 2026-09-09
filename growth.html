@@ -84,14 +84,13 @@
   .kpi-sub.up{ color: var(--good); }
 
   /* Funnel */
-  .funnel{ display:flex; align-items:stretch; }
+  .funnel{ display:flex; align-items:stretch; gap:10px; }
   .funnel-stage{ flex:1; background: var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 8px; text-align:center; display:flex; flex-direction:column; gap:5px; transition: border-color .18s ease; }
   .funnel-stage:hover{ border-color: var(--cyan-dim); }
   .funnel-stage-label{ font-size:10px; letter-spacing:.05em; text-transform:uppercase; color: var(--ink-dim); }
   .funnel-stage-value{ font-family: var(--font-display); font-size:22px; font-weight:700; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .funnel-connector{ flex:0 0 40px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color: var(--ink-faint); }
-  .funnel-connector svg{ width:13px; height:13px; }
-  .funnel-connector span{ font-family: var(--font-mono); font-size:10px; color: var(--cyan); white-space:nowrap; }
+  .funnel-stage-value.good{ color: var(--good); }
+  .funnel-stage-value.cyan{ color: var(--cyan); }
 
   /* Ads cards */
   .ads-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap:14px; }
@@ -160,7 +159,7 @@
   @media (prefers-reduced-motion: reduce){ .reveal{ animation:none; opacity:1; transform:none; } .dot.pulse{ animation:none; } }
 
   @media (max-width: 1180px){ .kpi-row{ grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 860px){ .funnel{ flex-direction:column; } .funnel-connector{ flex-direction:row; } .ads-grid{ grid-template-columns: 1fr; } .rev-label{ width:110px; } .rev-value{ width:70px; } .rev-meta{ display:none; } }
+  @media (max-width: 860px){ .funnel{ flex-wrap:wrap; } .funnel-stage{ flex:1 1 40%; } .ads-grid{ grid-template-columns: 1fr; } .rev-label{ width:110px; } .rev-value{ width:70px; } .rev-meta{ display:none; } }
 </style>
 
 <div class="shell">
@@ -275,15 +274,21 @@
           <div class="funnel-stage-label">Booked</div>
           <div class="funnel-stage-value" id="funnelBookedValue">—</div>
         </div>
-        <div class="funnel-connector"><svg viewBox="0 0 10 10"><path d="M2 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="funnelShowRate">—</span></div>
         <div class="funnel-stage">
-          <div class="funnel-stage-label">Taken (Show Rate)</div>
+          <div class="funnel-stage-label">Taken</div>
           <div class="funnel-stage-value" id="funnelTakenValue">—</div>
         </div>
-        <div class="funnel-connector"><svg viewBox="0 0 10 10"><path d="M2 2l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="funnelCloseRate">—</span></div>
         <div class="funnel-stage">
-          <div class="funnel-stage-label">Closed</div>
+          <div class="funnel-stage-label">Closes</div>
           <div class="funnel-stage-value" id="funnelClosedValue">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Close Rate</div>
+          <div class="funnel-stage-value good" id="funnelCloseRate">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Show Rate</div>
+          <div class="funnel-stage-value cyan" id="funnelShowRate">—</div>
         </div>
       </div>
       <div class="lowticket-card reveal" style="animation-delay:.13s">
