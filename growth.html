@@ -551,19 +551,22 @@
     badge.style.display = 'inline-flex';
   }
 
+  var bookingReqSeq = 0;
   async function refreshBooking(){
     syncBookingControls();
     setBookingLoading(true);
+    var seq = ++bookingReqSeq;
     try{
       var range = computeBookingRange();
       var res = await fetch('/booking-summary?start=' + fmtDate(range.start) + '&end=' + fmtDate(range.end));
       var data = await res.json();
+      if(seq !== bookingReqSeq) return; // a newer request has since superseded this one
       if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
       applyBookingData(data, range.label);
     }catch(err){
-      showToast('Booking data refresh failed: ' + err.message);
+      if(seq === bookingReqSeq) showToast('Booking data refresh failed: ' + err.message);
     }finally{
-      setBookingLoading(false);
+      if(seq === bookingReqSeq) setBookingLoading(false);
     }
   }
 
@@ -643,36 +646,47 @@
 
   function applyMrrData(data){
     document.getElementById('mrrValue').textContent = fmtMoney(data.mrr);
-    document.getElementById('mrrSub').textContent = data.activeSubscriptions + ' active subscription' + (data.activeSubscriptions === 1 ? '' : 's');
+    document.getElementById('mrrSub').textContent = data.activeSubscriptions + ' active subscription' + (data.activeSubscriptions === 1 ? '' : 's') + ' · as of ' + data.asOf;
   }
 
-  async function refreshMrr(){
+  var mrrReqSeq = 0;
+  async function refreshMrr(asOfDate){
+    var seq = ++mrrReqSeq;
     try{
-      var res = await fetch('/mrr-summary');
+      var url = '/mrr-summary' + (asOfDate ? ('?asOf=' + fmtDate(asOfDate)) : '');
+      var res = await fetch(url);
       var data = await res.json();
+      if(seq !== mrrReqSeq) return; // a newer request has since superseded this one
       if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
       applyMrrData(data);
     }catch(err){
+      if(seq !== mrrReqSeq) return;
       document.getElementById('mrrValue').textContent = 'N/A';
       document.getElementById('mrrSub').innerHTML = 'Needs "Subscriptions: Read" on your Stripe key — <a href="https://dashboard.stripe.com/apikeys" target="_blank" style="color:var(--cyan);">edit key</a>';
     }
   }
 
+  var cashReqSeq = 0;
   async function refreshCash(){
     syncCashControls();
     setCashLoading(true);
+    var range = computeCashRange();
+    var seq = ++cashReqSeq;
     try{
-      var range = computeCashRange();
       var res = await fetch('/cash-summary?start=' + fmtDate(range.start) + '&end=' + fmtDate(range.end));
       var data = await res.json();
+      if(seq !== cashReqSeq) return; // a newer request has since superseded this one
       if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
       applyCashData(data, range.label);
     }catch(err){
-      showToast('Cash data refresh failed: ' + err.message);
+      if(seq === cashReqSeq) showToast('Cash data refresh failed: ' + err.message);
     }finally{
-      setCashLoading(false);
+      if(seq === cashReqSeq) setCashLoading(false);
     }
-    refreshMrr();
+    if(seq !== cashReqSeq) return;
+    var now = new Date();
+    var asOfDate = range.end < now ? range.end : now;
+    refreshMrr(asOfDate);
   }
 
   document.getElementById('cashRefreshBtn').addEventListener('click', refreshCash);

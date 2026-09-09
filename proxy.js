@@ -328,11 +328,11 @@ function handleCashSummary(req, res) {
  * this key -> Subscriptions -> Read). The key value itself doesn't change
  * when you add a permission, so stripe_key.txt does not need to be touched.
  */
-async function getActiveSubscriptions(key) {
+async function getAllSubscriptions(key) {
   const subs = [];
   let startingAfter = null;
   for (let page = 0; page < 20; page++) { // hard cap: 20 pages = 2000 subscriptions
-    let qp = 'status=active&limit=100';
+    let qp = 'status=all&limit=100';
     if (startingAfter) qp += '&starting_after=' + startingAfter;
     const data = await stripeGet('/v1/subscriptions?' + qp, key);
     subs.push.apply(subs, data.data);
@@ -355,29 +355,46 @@ function monthlyAmountCents(item) {
   return 0;
 }
 
-async function computeMrrSummary() {
+async function computeMrrSummary(asOfStr) {
   const key = readStripeKey();
   if (!key) {
     throw new Error('No stripe_key.txt found next to proxy.js — create it with your restricted Stripe key.');
   }
 
-  const subs = await getActiveSubscriptions(key);
+  const now = new Date();
+  let asOfDate = parseDateParam(asOfStr, now);
+  if (asOfDate > now) asOfDate = now; // can't compute future MRR
+  // Treat "as of" as end-of-day, so a subscription that started that same day still counts.
+  const asOfSec = Math.floor(asOfDate.getTime() / 1000) + 86399;
+
+  const subs = await getAllSubscriptions(key);
   let totalCents = 0;
+  let activeCount = 0;
   subs.forEach((sub) => {
+    const start = sub.start_date;
+    const end = sub.ended_at || sub.canceled_at || null;
+    const activeAtDate = typeof start === 'number' && start <= asOfSec && (end === null || end > asOfSec);
+    if (!activeAtDate) return;
+    activeCount++;
     (sub.items && sub.items.data || []).forEach((item) => {
       totalCents += monthlyAmountCents(item);
     });
   });
 
+  const fmt = (d) => d.toISOString().slice(0, 10);
+
   return {
-    syncedAt: new Date().toISOString(),
+    syncedAt: now.toISOString(),
+    asOf: fmt(asOfDate),
     mrr: totalCents / 100,
-    activeSubscriptions: subs.length
+    activeSubscriptions: activeCount
   };
 }
 
 function handleMrrSummary(req, res) {
-  computeMrrSummary()
+  const parsed = new URL(req.url, 'http://localhost');
+  const asOfStr = parsed.searchParams.get('asOf');
+  computeMrrSummary(asOfStr)
     .then((summary) => sendJson(res, 200, summary))
     .catch((err) => sendJson(res, 500, { error: err.message }));
 }
@@ -592,7 +609,7 @@ server.listen(PORT, () => {
   console.log('POST /generate -> spawns `claude -p` for script generation');
   console.log('GET  /finance-summary -> reads stripe_key.txt and calls Stripe server-side');
   console.log('GET  /cash-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> cash collected for any date range');
-  console.log('GET  /mrr-summary -> recurring monthly revenue (needs Subscriptions:Read on your Stripe key)');
+  console.log('GET  /mrr-summary?asOf=YYYY-MM-DD -> recurring monthly revenue as of a given date (needs Subscriptions:Read)');
   console.log('GET  /ghl-pipelines -> reads ghl_key.txt and lists your GHL pipelines');
   console.log('GET  /booking-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> live Booked/Taken/Closes from GHL');
 });
