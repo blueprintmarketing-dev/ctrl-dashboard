@@ -526,11 +526,17 @@ async function computeBookingSummary(startStr, endStr) {
 
   const events = await getCalendarEvents(key, rangeStart.getTime(), rangeEnd.getTime());
 
+  const nowMs = Date.now();
   const booked = events.length;
   const noShow = events.filter((e) => e.appointmentStatus === 'noshow').length;
   const cancelled = events.filter((e) => e.appointmentStatus === 'cancelled').length;
   const invalid = events.filter((e) => e.appointmentStatus === 'invalid').length;
-  const taken = Math.max(booked - noShow - cancelled - invalid, 0);
+  // "Taken" only counts calls whose scheduled time has actually passed —
+  // a future-dated confirmed booking hasn't happened yet, so it isn't taken.
+  const taken = events.filter((e) => {
+    if (e.appointmentStatus === 'noshow' || e.appointmentStatus === 'cancelled' || e.appointmentStatus === 'invalid') return false;
+    return new Date(e.startTime).getTime() <= nowMs;
+  }).length;
 
   const closedOpps = await getClosedOpportunities(key);
   const closes = closedOpps.filter((o) => {
