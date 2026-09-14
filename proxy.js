@@ -25,6 +25,7 @@ const MAX_BODY_BYTES = 200 * 1024;       // 200KB — plenty for a script prompt
 const GENERATE_TIMEOUT_MS = 120000;      // 2 minutes
 const STRIPE_KEY_FILE = path.join(ROOT, 'stripe_key.txt');
 const MONTHLY_GOAL = 20000;              // edit this to change your Growth page goal
+const EXPENSES_FILE = path.join(ROOT, 'expenses.json');
 
 const GHL_KEY_FILE = path.join(ROOT, 'ghl_key.txt');
 const GHL_LOCATION_ID = 'TNBNoUEb4lxzxaQcG2VA';
@@ -323,6 +324,126 @@ function handleCashSummary(req, res) {
 }
 
 /**
+ * Business expenses — stored locally in expenses.json (created automatically
+ * on first save). Not pulled from Stripe: Stripe only knows what came IN.
+ * Each expense: { id, name, category, amount, frequency: 'once'|'monthly', date }
+ * "date" for a one-time expense is when it happened; for a recurring monthly
+ * expense it's the month it started (an optional "endDate" marks when it stopped).
+ */
+function readExpenses() {
+  try {
+    const raw = fs.readFileSync(EXPENSES_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeExpenses(list) {
+  fs.writeFileSync(EXPENSES_FILE, JSON.stringify(list, null, 2));
+}
+
+function handleExpensesGet(req, res) {
+  sendJson(res, 200, { expenses: readExpenses() });
+}
+
+function handleExpensesPost(req, res) {
+  let body = '';
+  let tooLarge = false;
+  req.on('data', (chunk) => {
+    body += chunk;
+    if (body.length > MAX_BODY_BYTES) { tooLarge = true; req.destroy(); }
+  });
+  req.on('end', () => {
+    if (tooLarge) { sendJson(res, 413, { error: 'Request body too large' }); return; }
+    let payload;
+    try { payload = JSON.parse(body || '{}'); } catch (e) {
+      sendJson(res, 400, { error: 'Invalid JSON body' }); return;
+    }
+    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+    const category = typeof payload.category === 'string' ? payload.category.trim() : 'Uncategorized';
+    const amount = Number(payload.amount);
+    const frequency = payload.frequency === 'monthly' ? 'monthly' : 'once';
+    const date = typeof payload.date === 'string' ? payload.date : null;
+    if (!name || !isFinite(amount) || amount <= 0 || !date) {
+      sendJson(res, 400, { error: 'Missing or invalid name, amount, or date' }); return;
+    }
+    const list = readExpenses();
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      name: name, category: category, amount: amount, frequency: frequency, date: date,
+      endDate: typeof payload.endDate === 'string' ? payload.endDate : null
+    };
+    list.push(entry);
+    writeExpenses(list);
+    sendJson(res, 200, { expenses: list });
+  });
+}
+
+function handleExpensesDelete(req, res) {
+  const parsed = new URL(req.url, 'http://localhost');
+  const id = parsed.searchParams.get('id');
+  if (!id) { sendJson(res, 400, { error: 'Missing id' }); return; }
+  const list = readExpenses().filter((e) => e.id !== id);
+  writeExpenses(list);
+  sendJson(res, 200, { expenses: list });
+}
+
+function daysBetween(a, b) {
+  return Math.max(Math.round((b.getTime() - a.getTime()) / 86400000), 0);
+}
+
+function expenseAmountInRange(expense, rangeStart, rangeEnd) {
+  if (expense.frequency === 'once') {
+    const d = new Date(expense.date + 'T00:00:00');
+    return (d >= rangeStart && d < rangeEnd) ? expense.amount : 0;
+  }
+  // Recurring monthly: prorate by the overlap between the expense's active
+  // window (start date -> optional end date) and the queried range.
+  const activeStart = new Date(expense.date + 'T00:00:00');
+  const activeEnd = expense.endDate ? new Date(expense.endDate + 'T00:00:00') : null;
+  const overlapStart = activeStart > rangeStart ? activeStart : rangeStart;
+  const overlapEnd = activeEnd && activeEnd < rangeEnd ? activeEnd : rangeEnd;
+  if (overlapStart >= overlapEnd) return 0;
+  const overlapDays = daysBetween(overlapStart, overlapEnd);
+  const daysInMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + 1, 0).getDate();
+  return expense.amount * (overlapDays / daysInMonth);
+}
+
+async function computeProfitSummary(startStr, endStr) {
+  const cash = await computeCashSummary(startStr, endStr);
+  const rangeStart = new Date(cash.start + 'T00:00:00');
+  const rangeEnd = new Date(new Date(cash.end + 'T00:00:00').getTime() + 86400000);
+
+  const expenses = readExpenses();
+  const totalExpenses = expenses.reduce((sum, e) => sum + expenseAmountInRange(e, rangeStart, rangeEnd), 0);
+
+  const revenue = cash.collected;
+  const profit = revenue - totalExpenses;
+  const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+  return {
+    syncedAt: new Date().toISOString(),
+    start: cash.start,
+    end: cash.end,
+    revenue: revenue,
+    expenses: totalExpenses,
+    profit: profit,
+    margin: margin
+  };
+}
+
+function handleProfitSummary(req, res) {
+  const parsed = new URL(req.url, 'http://localhost');
+  const startStr = parsed.searchParams.get('start');
+  const endStr = parsed.searchParams.get('end');
+  computeProfitSummary(startStr, endStr)
+    .then((summary) => sendJson(res, 200, summary))
+    .catch((err) => sendJson(res, 500, { error: err.message }));
+}
+
+/**
  * Recurring Monthly Revenue — needs the "Subscriptions: Read" permission
  * enabled on the same restricted key (Stripe dashboard -> API keys -> edit
  * this key -> Subscriptions -> Read). The key value itself doesn't change
@@ -600,6 +721,22 @@ const server = http.createServer((req, res) => {
     handleBookingSummary(req, res);
     return;
   }
+  if (req.method === 'GET' && urlPath === '/expenses') {
+    handleExpensesGet(req, res);
+    return;
+  }
+  if (req.method === 'POST' && urlPath === '/expenses') {
+    handleExpensesPost(req, res);
+    return;
+  }
+  if (req.method === 'DELETE' && urlPath === '/expenses') {
+    handleExpensesDelete(req, res);
+    return;
+  }
+  if (req.method === 'GET' && urlPath === '/profit-summary') {
+    handleProfitSummary(req, res);
+    return;
+  }
   if (req.method === 'GET') {
     serveStatic(req, res);
     return;
@@ -618,4 +755,6 @@ server.listen(PORT, () => {
   console.log('GET  /mrr-summary?asOf=YYYY-MM-DD -> recurring monthly revenue as of a given date (needs Subscriptions:Read)');
   console.log('GET  /ghl-pipelines -> reads ghl_key.txt and lists your GHL pipelines');
   console.log('GET  /booking-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> live Booked/Taken/Closes from GHL');
+  console.log('GET/POST/DELETE /expenses -> manage business expenses (stored in expenses.json)');
+  console.log('GET  /profit-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> revenue minus expenses, profit margin');
 });
