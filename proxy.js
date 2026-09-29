@@ -676,6 +676,19 @@ async function computeGhlPipelines() {
   return { pipelines: pipelines };
 }
 
+function handleGhlLocation(req, res) {
+  const key = readGhlKey();
+  if (!key) { sendJson(res, 500, { error: 'No GHL key configured' }); return; }
+  ghlGet('/locations/' + GHL_LOCATION_ID, key, '2021-07-28')
+    .then((data) => sendJson(res, 200, {
+      locationId: GHL_LOCATION_ID,
+      name: data.location && data.location.name,
+      companyName: data.location && data.location.companyName,
+      email: data.location && data.location.email
+    }))
+    .catch((err) => sendJson(res, 500, { error: err.message }));
+}
+
 function handleGhlPipelines(req, res) {
   computeGhlPipelines()
     .then((summary) => sendJson(res, 200, summary))
@@ -802,6 +815,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && urlPath === '/mrr-summary') {
     handleMrrSummary(req, res);
+    return;
+  }
+  if (req.method === 'GET' && urlPath === '/ghl-location') {
+    handleGhlLocation(req, res);
     return;
   }
   if (req.method === 'GET' && urlPath === '/ghl-pipelines') {
