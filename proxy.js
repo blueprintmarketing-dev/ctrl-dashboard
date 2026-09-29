@@ -624,6 +624,13 @@ async function computeCallsSummary(startStr, endStr) {
   const pickupRate = made > 0 ? (pickedUp / made) * 100 : 0;
   const connectRate = pickedUp > 0 ? (connected / pickedUp) * 100 : 0;
 
+  // Booking rate: appointments landed on the calendar in this same window,
+  // as a share of calls made — "of the calls I dialed, how many turned into
+  // a booked appointment."
+  const events = await getCalendarEvents(key, rangeStart.getTime(), rangeEnd.getTime());
+  const booked = events.length;
+  const bookingRate = made > 0 ? (booked / made) * 100 : 0;
+
   const fmt = (d) => d.toISOString().slice(0, 10);
   const inclusiveEnd = new Date(rangeEnd.getTime() - 86400000);
 
@@ -636,7 +643,9 @@ async function computeCallsSummary(startStr, endStr) {
     connected: connected,
     pickupRate: pickupRate,
     connectRate: connectRate,
-    connectThresholdSec: CALLS_CONNECT_THRESHOLD_SEC
+    connectThresholdSec: CALLS_CONNECT_THRESHOLD_SEC,
+    booked: booked,
+    bookingRate: bookingRate
   };
 }
 

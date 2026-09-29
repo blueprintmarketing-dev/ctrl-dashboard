@@ -326,6 +326,7 @@
           <div class="funnel-nav-pill">
             <button class="funnel-nav-arrow" id="callsPrevBtn" title="Previous period">‹</button>
             <select class="funnel-nav-select" id="callsRangeSelect">
+              <optgroup label="Day" id="callsDayGroup"></optgroup>
               <optgroup label="Week">
                 <option value="w:0">THIS WEEK</option>
                 <option value="w:-1">LAST WEEK</option>
@@ -358,6 +359,16 @@
         <div class="funnel-stage">
           <div class="funnel-stage-label">Connect Rate</div>
           <div class="funnel-stage-value good" id="callsConnectRate">—</div>
+        </div>
+      </div>
+      <div class="funnel reveal loading-dim" id="callsBookingBlock" style="animation-delay:.15s; margin-top:10px;">
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Booked (this window)</div>
+          <div class="funnel-stage-value" id="callsBookedValue">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Booking Rate (of calls made)</div>
+          <div class="funnel-stage-value good" id="callsBookingRate">—</div>
         </div>
       </div>
     </div>
@@ -671,8 +682,28 @@
   }
   buildCallsMonthOptions();
 
+  function buildCallsDayOptions(){
+    var group = document.getElementById('callsDayGroup');
+    var now = new Date();
+    for(var i = 0; i <= 13; i++){
+      var offset = -i;
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      var opt = document.createElement('option');
+      opt.value = 'd:' + offset;
+      opt.textContent = (i === 0 ? 'TODAY — ' : i === 1 ? 'YESTERDAY — ' : '') +
+        d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}).toUpperCase();
+      group.appendChild(opt);
+    }
+  }
+  buildCallsDayOptions();
+
   function computeCallsRange(){
     var now = new Date();
+    if(callsState.mode === 'day'){
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + callsState.offset);
+      var label = d.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
+      return { start: d, end: d, label: label };
+    }
     if(callsState.mode === 'week'){
       var day = now.getDay();
       var thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
@@ -690,7 +721,7 @@
 
   function syncCallsControls(){
     var sel = document.getElementById('callsRangeSelect');
-    var prefix = callsState.mode === 'week' ? 'w:' : 'm:';
+    var prefix = callsState.mode === 'day' ? 'd:' : callsState.mode === 'week' ? 'w:' : 'm:';
     var wanted = prefix + callsState.offset;
     var hasOption = Array.prototype.some.call(sel.options, function(o){ return o.value === wanted; });
     sel.value = hasOption ? wanted : 'custom';
@@ -703,6 +734,7 @@
     btn.disabled = isLoading;
     icon.classList.toggle('spinning', isLoading);
     document.getElementById('callsFunnelBlock').classList.toggle('loading-dim', isLoading);
+    document.getElementById('callsBookingBlock').classList.toggle('loading-dim', isLoading);
   }
 
   function applyCallsData(data){
@@ -711,6 +743,8 @@
     document.getElementById('callsConnectedValue').textContent = data.connected;
     document.getElementById('callsPickupRate').textContent = data.pickupRate.toFixed(1) + '%';
     document.getElementById('callsConnectRate').textContent = data.connectRate.toFixed(1) + '%';
+    document.getElementById('callsBookedValue').textContent = data.booked;
+    document.getElementById('callsBookingRate').textContent = data.bookingRate.toFixed(1) + '%';
     document.getElementById('callsRangeLabel').textContent = data.start + ' to ' + data.end;
 
     var badge = document.getElementById('callsLiveBadge');
@@ -743,7 +777,8 @@
   document.getElementById('callsNextBtn').addEventListener('click', function(){ if(callsState.offset < 0){ callsState.offset += 1; refreshCalls(); } });
   document.getElementById('callsRangeSelect').addEventListener('change', function(e){
     var v = e.target.value;
-    if(v.indexOf('w:') === 0){ callsState.mode='week'; callsState.offset=parseInt(v.slice(2),10); }
+    if(v.indexOf('d:') === 0){ callsState.mode='day'; callsState.offset=parseInt(v.slice(2),10); }
+    else if(v.indexOf('w:') === 0){ callsState.mode='week'; callsState.offset=parseInt(v.slice(2),10); }
     else if(v.indexOf('m:') === 0){ callsState.mode='month'; callsState.offset=parseInt(v.slice(2),10); }
     refreshCalls();
   });
