@@ -318,6 +318,51 @@
     </div>
 
     <div class="section">
+      <div class="section-head reveal" style="animation-delay:.135s">
+        <div class="section-title">Call Activity</div>
+        <div class="funnel-nav">
+          <span class="badge live" id="callsLiveBadge" title="Not yet connected — click Refresh" style="display:none;">● LIVE</span>
+          <button class="refresh-btn" id="callsRefreshBtn"><span class="spin" id="callsRefreshIcon">↻</span> Refresh</button>
+          <div class="funnel-nav-pill">
+            <button class="funnel-nav-arrow" id="callsPrevBtn" title="Previous period">‹</button>
+            <select class="funnel-nav-select" id="callsRangeSelect">
+              <optgroup label="Week">
+                <option value="w:0">THIS WEEK</option>
+                <option value="w:-1">LAST WEEK</option>
+              </optgroup>
+              <optgroup label="Month" id="callsMonthGroup"></optgroup>
+              <option value="custom" disabled hidden>CUSTOM</option>
+            </select>
+            <button class="funnel-nav-arrow" id="callsNextBtn" title="Next period">›</button>
+          </div>
+          <span class="funnel-nav-range" id="callsRangeLabel">—</span>
+        </div>
+      </div>
+      <div class="funnel reveal loading-dim" id="callsFunnelBlock" style="animation-delay:.14s">
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Made</div>
+          <div class="funnel-stage-value" id="callsMadeValue">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Picked Up</div>
+          <div class="funnel-stage-value" id="callsPickedUpValue">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Connected</div>
+          <div class="funnel-stage-value" id="callsConnectedValue">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Pickup Rate</div>
+          <div class="funnel-stage-value cyan" id="callsPickupRate">—</div>
+        </div>
+        <div class="funnel-stage">
+          <div class="funnel-stage-label">Connect Rate</div>
+          <div class="funnel-stage-value good" id="callsConnectRate">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-head reveal" style="animation-delay:.14s">
         <div class="section-title">Cash Collected</div>
         <div class="funnel-nav">
@@ -609,6 +654,101 @@
   });
 
   refreshBooking();
+
+  var callsState = { mode: 'month', offset: 0 };
+
+  function buildCallsMonthOptions(){
+    var group = document.getElementById('callsMonthGroup');
+    var now = new Date();
+    for(var i = 0; i <= 12; i++){
+      var offset = -i;
+      var d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      var opt = document.createElement('option');
+      opt.value = 'm:' + offset;
+      opt.textContent = d.toLocaleDateString(undefined,{month:'long', year:'numeric'}).toUpperCase();
+      group.appendChild(opt);
+    }
+  }
+  buildCallsMonthOptions();
+
+  function computeCallsRange(){
+    var now = new Date();
+    if(callsState.mode === 'week'){
+      var day = now.getDay();
+      var thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+      var start = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() + callsState.offset*7);
+      var end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      var label = 'week of ' + start.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+      return { start: start, end: end, label: label };
+    }
+    var y = now.getFullYear(), m = now.getMonth() + callsState.offset;
+    var start = new Date(y, m, 1);
+    var end = new Date(y, m + 1, 0);
+    var label = start.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+    return { start: start, end: end, label: label };
+  }
+
+  function syncCallsControls(){
+    var sel = document.getElementById('callsRangeSelect');
+    var prefix = callsState.mode === 'week' ? 'w:' : 'm:';
+    var wanted = prefix + callsState.offset;
+    var hasOption = Array.prototype.some.call(sel.options, function(o){ return o.value === wanted; });
+    sel.value = hasOption ? wanted : 'custom';
+    document.getElementById('callsNextBtn').disabled = callsState.offset >= 0;
+  }
+
+  function setCallsLoading(isLoading){
+    var btn = document.getElementById('callsRefreshBtn');
+    var icon = document.getElementById('callsRefreshIcon');
+    btn.disabled = isLoading;
+    icon.classList.toggle('spinning', isLoading);
+    document.getElementById('callsFunnelBlock').classList.toggle('loading-dim', isLoading);
+  }
+
+  function applyCallsData(data){
+    document.getElementById('callsMadeValue').textContent = data.made;
+    document.getElementById('callsPickedUpValue').textContent = data.pickedUp;
+    document.getElementById('callsConnectedValue').textContent = data.connected;
+    document.getElementById('callsPickupRate').textContent = data.pickupRate.toFixed(1) + '%';
+    document.getElementById('callsConnectRate').textContent = data.connectRate.toFixed(1) + '%';
+    document.getElementById('callsRangeLabel').textContent = data.start + ' to ' + data.end;
+
+    var badge = document.getElementById('callsLiveBadge');
+    var syncTime = new Date(data.syncedAt).toLocaleString(undefined,{month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    badge.title = 'Pulled from GoHighLevel (server-side) · synced ' + syncTime + ' · connected = ' + data.connectThresholdSec + 's+';
+    badge.style.display = 'inline-flex';
+  }
+
+  var callsReqSeq = 0;
+  async function refreshCalls(){
+    syncCallsControls();
+    setCallsLoading(true);
+    var seq = ++callsReqSeq;
+    try{
+      var range = computeCallsRange();
+      var res = await fetch('/calls-summary?start=' + fmtDate(range.start) + '&end=' + fmtDate(range.end));
+      var data = await res.json();
+      if(seq !== callsReqSeq) return;
+      if(!res.ok || data.error) throw new Error(data.error || ('Request failed: ' + res.status));
+      applyCallsData(data);
+    }catch(err){
+      if(seq === callsReqSeq) showToast('Call data refresh failed: ' + err.message);
+    }finally{
+      if(seq === callsReqSeq) setCallsLoading(false);
+    }
+  }
+
+  document.getElementById('callsRefreshBtn').addEventListener('click', refreshCalls);
+  document.getElementById('callsPrevBtn').addEventListener('click', function(){ callsState.offset -= 1; refreshCalls(); });
+  document.getElementById('callsNextBtn').addEventListener('click', function(){ if(callsState.offset < 0){ callsState.offset += 1; refreshCalls(); } });
+  document.getElementById('callsRangeSelect').addEventListener('change', function(e){
+    var v = e.target.value;
+    if(v.indexOf('w:') === 0){ callsState.mode='week'; callsState.offset=parseInt(v.slice(2),10); }
+    else if(v.indexOf('m:') === 0){ callsState.mode='month'; callsState.offset=parseInt(v.slice(2),10); }
+    refreshCalls();
+  });
+
+  refreshCalls();
 
   var cashState = { mode: 'month', offset: 0 };
 
