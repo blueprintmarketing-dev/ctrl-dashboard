@@ -567,6 +567,21 @@ function ghlGet(urlPath, key, version) {
   });
 }
 
+/**
+ * TEMPORARY diagnostic — inspect real call-message field names before
+ * building the calls-tracking feature. Remove once that's built.
+ */
+function handleCallsDebug(req, res) {
+  const key = readGhlKey();
+  if (!key) { sendJson(res, 500, { error: 'No GHL key configured' }); return; }
+  ghlGet(
+    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=10',
+    key,
+    '2021-04-15'
+  ).then((data) => sendJson(res, 200, data))
+   .catch((err) => sendJson(res, 500, { error: err.message }));
+}
+
 async function computeGhlPipelines() {
   const key = readGhlKey();
   if (!key) {
@@ -715,6 +730,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && urlPath === '/ghl-pipelines') {
     handleGhlPipelines(req, res);
+    return;
+  }
+  if (req.method === 'GET' && urlPath === '/calls-debug') {
+    handleCallsDebug(req, res);
     return;
   }
   if (req.method === 'GET' && urlPath === '/booking-summary') {
