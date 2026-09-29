@@ -277,6 +277,7 @@
           <div class="funnel-nav-pill">
             <button class="funnel-nav-arrow" id="bookingPrevBtn" title="Previous period">‹</button>
             <select class="funnel-nav-select" id="bookingRangeSelect">
+              <optgroup label="Day" id="bookingDayGroup"></optgroup>
               <optgroup label="Week">
                 <option value="w:0">THIS WEEK</option>
                 <option value="w:-1">LAST WEEK</option>
@@ -578,8 +579,28 @@
   }
   buildBookingMonthOptions();
 
+  function buildBookingDayOptions(){
+    var group = document.getElementById('bookingDayGroup');
+    var now = new Date();
+    for(var i = 0; i <= 13; i++){
+      var offset = -i;
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      var opt = document.createElement('option');
+      opt.value = 'd:' + offset;
+      opt.textContent = (i === 0 ? 'TODAY — ' : i === 1 ? 'YESTERDAY — ' : '') +
+        d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}).toUpperCase();
+      group.appendChild(opt);
+    }
+  }
+  buildBookingDayOptions();
+
   function computeBookingRange(){
     var now = new Date();
+    if(bookingState.mode === 'day'){
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + bookingState.offset);
+      var label = d.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
+      return { start: d, end: d, label: label };
+    }
     if(bookingState.mode === 'week'){
       var day = now.getDay();
       var thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
@@ -597,7 +618,7 @@
 
   function syncBookingControls(){
     var sel = document.getElementById('bookingRangeSelect');
-    var prefix = bookingState.mode === 'week' ? 'w:' : 'm:';
+    var prefix = bookingState.mode === 'day' ? 'd:' : bookingState.mode === 'week' ? 'w:' : 'm:';
     var wanted = prefix + bookingState.offset;
     var hasOption = Array.prototype.some.call(sel.options, function(o){ return o.value === wanted; });
     sel.value = hasOption ? wanted : 'custom';
@@ -659,7 +680,8 @@
   document.getElementById('bookingNextBtn').addEventListener('click', function(){ if(bookingState.offset < 0){ bookingState.offset += 1; refreshBooking(); } });
   document.getElementById('bookingRangeSelect').addEventListener('change', function(e){
     var v = e.target.value;
-    if(v.indexOf('w:') === 0){ bookingState.mode='week'; bookingState.offset=parseInt(v.slice(2),10); }
+    if(v.indexOf('d:') === 0){ bookingState.mode='day'; bookingState.offset=parseInt(v.slice(2),10); }
+    else if(v.indexOf('w:') === 0){ bookingState.mode='week'; bookingState.offset=parseInt(v.slice(2),10); }
     else if(v.indexOf('m:') === 0){ bookingState.mode='month'; bookingState.offset=parseInt(v.slice(2),10); }
     refreshBooking();
   });
