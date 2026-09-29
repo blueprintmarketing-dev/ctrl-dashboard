@@ -574,8 +574,10 @@ function ghlGet(urlPath, key, version) {
 function handleCallsDebug(req, res) {
   const key = readGhlKey();
   if (!key) { sendJson(res, 500, { error: 'No GHL key configured' }); return; }
+  const parsed = new URL(req.url, 'http://localhost');
+  const extra = parsed.search ? parsed.search.replace(/^\?/, '&') : '';
   ghlGet(
-    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=10',
+    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=5' + extra,
     key,
     '2021-04-15'
   ).then((data) => sendJson(res, 200, data))
