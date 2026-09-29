@@ -577,7 +577,7 @@ function handleCallsDebug(req, res) {
   const parsed = new URL(req.url, 'http://localhost');
   const extra = parsed.search ? parsed.search.replace(/^\?/, '&') : '';
   ghlGet(
-    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=5' + extra,
+    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=10' + extra,
     key,
     '2021-04-15'
   ).then((data) => sendJson(res, 200, data))
