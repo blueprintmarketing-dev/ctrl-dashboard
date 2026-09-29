@@ -569,19 +569,84 @@ function ghlGet(urlPath, key, version) {
 
 /**
  * TEMPORARY diagnostic — inspect real call-message field names before
- * building the calls-tracking feature. Remove once that's built.
+ * Calls tracking — Made / Picked Up / Connected, from GHL's dialer call log
+ * (GET /conversations/messages/export, channel=Call). A picked-up call only
+ * counts as "connected" once it's lasted at least CALLS_CONNECT_THRESHOLD_SEC,
+ * to filter out instant hang-ups and voicemail bounces that technically
+ * show as "completed" but weren't a real conversation.
  */
-function handleCallsDebug(req, res) {
+const CALLS_CONNECT_THRESHOLD_SEC = 30;
+
+async function getCallMessagesInRange(key, startIso, endIso) {
+  const messages = [];
+  let cursor = null;
+  for (let page = 0; page < 20; page++) { // hard cap: 20 pages = 2000 calls
+    let qp = 'locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=100' +
+      '&startDate=' + encodeURIComponent(startIso) + '&endDate=' + encodeURIComponent(endIso);
+    if (cursor) qp += '&cursor=' + encodeURIComponent(cursor);
+    const data = await ghlGet('/conversations/messages/export?' + qp, key, '2021-04-15');
+    const batch = data.messages || [];
+    messages.push.apply(messages, batch);
+    if (!data.nextCursor || batch.length === 0 || messages.length >= (data.total || Infinity)) break;
+    cursor = data.nextCursor;
+  }
+  return messages;
+}
+
+async function computeCallsSummary(startStr, endStr) {
   const key = readGhlKey();
-  if (!key) { sendJson(res, 500, { error: 'No GHL key configured' }); return; }
+  if (!key) {
+    throw new Error('No ghl_key.txt found next to proxy.js — create it with your GHL Private Integration Token.');
+  }
+
+  const now = new Date();
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const rangeStart = parseDateParam(startStr, defaultStart);
+  let rangeEnd = parseDateParam(endStr, null);
+  rangeEnd = rangeEnd ? new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate() + 1) : defaultEnd;
+
+  const startIso = rangeStart.toISOString();
+  const endIso = new Date(rangeEnd.getTime() - 1).toISOString();
+
+  const messages = await getCallMessagesInRange(key, startIso, endIso);
+  const outbound = messages.filter((m) => m.direction === 'outbound');
+
+  const made = outbound.length;
+  const pickedUpList = outbound.filter((m) => m.status === 'completed');
+  const connectedList = pickedUpList.filter((m) => {
+    const dur = (m.meta && m.meta.call && typeof m.meta.call.duration === 'number') ? m.meta.call.duration : null;
+    return dur !== null && dur >= CALLS_CONNECT_THRESHOLD_SEC;
+  });
+
+  const pickedUp = pickedUpList.length;
+  const connected = connectedList.length;
+  const pickupRate = made > 0 ? (pickedUp / made) * 100 : 0;
+  const connectRate = pickedUp > 0 ? (connected / pickedUp) * 100 : 0;
+
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  const inclusiveEnd = new Date(rangeEnd.getTime() - 86400000);
+
+  return {
+    syncedAt: now.toISOString(),
+    start: fmt(rangeStart),
+    end: fmt(inclusiveEnd),
+    made: made,
+    pickedUp: pickedUp,
+    connected: connected,
+    pickupRate: pickupRate,
+    connectRate: connectRate,
+    connectThresholdSec: CALLS_CONNECT_THRESHOLD_SEC
+  };
+}
+
+function handleCallsSummary(req, res) {
   const parsed = new URL(req.url, 'http://localhost');
-  const extra = parsed.search ? parsed.search.replace(/^\?/, '&') : '';
-  ghlGet(
-    '/conversations/messages/export?locationId=' + GHL_LOCATION_ID + '&channel=Call&limit=10' + extra,
-    key,
-    '2021-04-15'
-  ).then((data) => sendJson(res, 200, data))
-   .catch((err) => sendJson(res, 500, { error: err.message }));
+  const startStr = parsed.searchParams.get('start');
+  const endStr = parsed.searchParams.get('end');
+  computeCallsSummary(startStr, endStr)
+    .then((summary) => sendJson(res, 200, summary))
+    .catch((err) => sendJson(res, 500, { error: err.message }));
 }
 
 async function computeGhlPipelines() {
@@ -734,8 +799,8 @@ const server = http.createServer((req, res) => {
     handleGhlPipelines(req, res);
     return;
   }
-  if (req.method === 'GET' && urlPath === '/calls-debug') {
-    handleCallsDebug(req, res);
+  if (req.method === 'GET' && urlPath === '/calls-summary') {
+    handleCallsSummary(req, res);
     return;
   }
   if (req.method === 'GET' && urlPath === '/booking-summary') {
@@ -776,6 +841,7 @@ server.listen(PORT, () => {
   console.log('GET  /mrr-summary?asOf=YYYY-MM-DD -> recurring monthly revenue as of a given date (needs Subscriptions:Read)');
   console.log('GET  /ghl-pipelines -> reads ghl_key.txt and lists your GHL pipelines');
   console.log('GET  /booking-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> live Booked/Taken/Closes from GHL');
+  console.log('GET  /calls-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> live Made/Picked Up/Connected from GHL dialer');
   console.log('GET/POST/DELETE /expenses -> manage business expenses (stored in expenses.json)');
   console.log('GET  /profit-summary?start=YYYY-MM-DD&end=YYYY-MM-DD -> revenue minus expenses, profit margin');
 });
