@@ -130,7 +130,14 @@ function serveStatic(req, res) {
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    // No caching at all — this app changes often during active development,
+    // and mobile Safari in particular will otherwise keep serving a stale
+    // copy of the page indefinitely even across manual reloads.
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache'
+    });
     res.end(data);
   });
 }
