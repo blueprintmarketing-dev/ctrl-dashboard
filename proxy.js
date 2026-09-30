@@ -624,13 +624,17 @@ function ghlGet(urlPath, key, version) {
 }
 
 /**
- * TEMPORARY diagnostic — inspect real call-message field names before
  * Calls tracking — Made / Picked Up / Connected, from GHL's dialer call log
- * (GET /conversations/messages/export, channel=Call). A picked-up call only
- * counts as "connected" once it's lasted at least CALLS_CONNECT_THRESHOLD_SEC,
- * to filter out instant hang-ups and voicemail bounces that technically
- * show as "completed" but weren't a real conversation.
+ * (GET /conversations/messages/export, channel=Call). GHL marks a call
+ * "completed" whenever the session ends normally — that includes a genuine
+ * pickup AND an instant decline/hangup, which the phone network reports the
+ * same way. Two duration floors separate the noise from the signal:
+ *  - CALLS_PICKUP_THRESHOLD_SEC filters out near-instant declines so they
+ *    don't count as "Picked Up" at all.
+ *  - CALLS_CONNECT_THRESHOLD_SEC filters picked-up calls further down to
+ *    ones that were an actual conversation, not just a longer hang-up.
  */
+const CALLS_PICKUP_THRESHOLD_SEC = 3;
 const CALLS_CONNECT_THRESHOLD_SEC = 20;
 
 async function getCallMessagesInRange(key, startIso, endIso) {
@@ -671,9 +675,14 @@ async function computeCallsSummary(startStr, endStr) {
 
   const made = outbound.length;
   const uniqueLeadsContacted = new Set(outbound.map((m) => m.contactId)).size;
-  const pickedUpList = outbound.filter((m) => m.status === 'completed');
+  const callDurationSec = (m) => (m.meta && m.meta.call && typeof m.meta.call.duration === 'number') ? m.meta.call.duration : null;
+  const pickedUpList = outbound.filter((m) => {
+    if (m.status !== 'completed') return false;
+    const dur = callDurationSec(m);
+    return dur !== null && dur >= CALLS_PICKUP_THRESHOLD_SEC;
+  });
   const connectedList = pickedUpList.filter((m) => {
-    const dur = (m.meta && m.meta.call && typeof m.meta.call.duration === 'number') ? m.meta.call.duration : null;
+    const dur = callDurationSec(m);
     return dur !== null && dur >= CALLS_CONNECT_THRESHOLD_SEC;
   });
 
@@ -704,6 +713,7 @@ async function computeCallsSummary(startStr, endStr) {
     connected: connected,
     pickupRate: pickupRate,
     connectRate: connectRate,
+    pickupThresholdSec: CALLS_PICKUP_THRESHOLD_SEC,
     connectThresholdSec: CALLS_CONNECT_THRESHOLD_SEC,
     booked: booked,
     bookingRate: bookingRate
