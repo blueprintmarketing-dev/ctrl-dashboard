@@ -157,7 +157,7 @@
 
   .cal-trigger{ display:flex; align-items:center; gap:6px; background: var(--panel); border:none; border-left:1px solid var(--line); border-right:1px solid var(--line); color: var(--warn); font-family: var(--font-mono); font-size:11px; font-weight:600; letter-spacing:.04em; padding:5px 10px; cursor:pointer; }
   .cal-trigger:hover{ background: var(--cyan-glow-soft); }
-  .cal-popover{ position:absolute; z-index:60; width:250px; background: var(--panel-raised); border:1px solid var(--line); border-radius:10px; box-shadow: 0 12px 32px rgba(0,0,0,.5); padding:12px; display:none; }
+  .cal-popover{ position:fixed; z-index:60; width:250px; background: var(--panel-raised); border:1px solid var(--line); border-radius:10px; box-shadow: 0 12px 32px rgba(0,0,0,.5); padding:12px; display:none; }
   .cal-popover.open{ display:block; }
   .cal-seg{ display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; margin-bottom:10px; }
   .cal-seg button{ flex:1; background:none; border:none; color: var(--ink-dim); font-family: var(--font-mono); font-size:10px; letter-spacing:.04em; padding:6px 0; cursor:pointer; border-right:1px solid var(--line); }
@@ -690,12 +690,23 @@
       });
     }
 
+    function positionPopover(){
+      var rect = trigger.getBoundingClientRect();
+      var top = rect.bottom + 6;
+      var left = rect.left;
+      var maxLeft = window.innerWidth - 250 - 12; // keep it on-screen (popover is 250px wide)
+      if(left > maxLeft) left = Math.max(maxLeft, 12);
+      popover.style.top = top + 'px';
+      popover.style.left = left + 'px';
+    }
+
     function openPop(){
       var sel = selectedRange();
       browse.year = sel.start.getFullYear();
       browse.month = sel.start.getMonth();
       pickMode = opts.state.mode;
       render();
+      positionPopover();
       popover.classList.add('open');
     }
     function closePop(){ popover.classList.remove('open'); }
