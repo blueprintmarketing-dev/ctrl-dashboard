@@ -666,7 +666,14 @@
       if(!btn || btn.disabled) return;
 
       var seg = btn.getAttribute('data-seg');
-      if(seg){ pickMode = seg; render(); positionPopover(); return; }
+      if(seg){
+        pickMode = seg;
+        opts.state.mode = seg;
+        opts.state.offset = 0;
+        closePop();
+        opts.onApply();
+        return;
+      }
 
       var nav = btn.getAttribute('data-nav');
       if(nav === 'prev'){
