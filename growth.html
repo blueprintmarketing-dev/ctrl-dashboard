@@ -657,39 +657,49 @@
       html += '</div><button type="button" class="cal-today-btn" data-nav="today">Today</button>';
 
       popover.innerHTML = html;
-
-      Array.prototype.forEach.call(popover.querySelectorAll('[data-seg]'), function(btn){
-        btn.addEventListener('click', function(){ pickMode = btn.getAttribute('data-seg'); render(); });
-      });
-      popover.querySelector('[data-nav="prev"]').addEventListener('click', function(){
-        browse.month -= 1; if(browse.month < 0){ browse.month = 11; browse.year -= 1; } render();
-      });
-      var nextBtn = popover.querySelector('[data-nav="next"]');
-      if(!nextBtn.disabled) nextBtn.addEventListener('click', function(){
-        browse.month += 1; if(browse.month > 11){ browse.month = 0; browse.year += 1; } render();
-      });
-      popover.querySelector('[data-nav="today"]').addEventListener('click', function(){
-        opts.state.mode = pickMode; opts.state.offset = 0; closePop(); opts.onApply();
-      });
-      Array.prototype.forEach.call(popover.querySelectorAll('.cal-day:not(:disabled)'), function(btn){
-        btn.addEventListener('click', function(){
-          var y = parseInt(btn.getAttribute('data-y'),10), m = parseInt(btn.getAttribute('data-m'),10), d = parseInt(btn.getAttribute('data-d'),10);
-          var clicked = new Date(y, m, d);
-          if(pickMode === 'day'){
-            opts.state.mode = 'day';
-            opts.state.offset = calDaysBetween(today, clicked);
-          } else if(pickMode === 'week'){
-            opts.state.mode = 'week';
-            opts.state.offset = Math.round(calDaysBetween(calWeekStart(today), calWeekStart(clicked)) / 7);
-          } else {
-            opts.state.mode = 'month';
-            opts.state.offset = (y*12+m) - (today.getFullYear()*12+today.getMonth());
-          }
-          closePop();
-          opts.onApply();
-        });
-      });
     }
+
+    // Single delegated listener, bound once — survives every innerHTML
+    // rebuild from render(), so there's no per-button re-binding to get wrong.
+    popover.addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      if(!btn || btn.disabled) return;
+
+      var seg = btn.getAttribute('data-seg');
+      if(seg){ pickMode = seg; render(); positionPopover(); return; }
+
+      var nav = btn.getAttribute('data-nav');
+      if(nav === 'prev'){
+        browse.month -= 1; if(browse.month < 0){ browse.month = 11; browse.year -= 1; }
+        render(); positionPopover(); return;
+      }
+      if(nav === 'next'){
+        browse.month += 1; if(browse.month > 11){ browse.month = 0; browse.year += 1; }
+        render(); positionPopover(); return;
+      }
+      if(nav === 'today'){
+        opts.state.mode = pickMode; opts.state.offset = 0;
+        closePop(); opts.onApply(); return;
+      }
+
+      if(btn.classList.contains('cal-day')){
+        var today = todayMid();
+        var y = parseInt(btn.getAttribute('data-y'),10), m = parseInt(btn.getAttribute('data-m'),10), d = parseInt(btn.getAttribute('data-d'),10);
+        var clicked = new Date(y, m, d);
+        if(pickMode === 'day'){
+          opts.state.mode = 'day';
+          opts.state.offset = calDaysBetween(today, clicked);
+        } else if(pickMode === 'week'){
+          opts.state.mode = 'week';
+          opts.state.offset = Math.round(calDaysBetween(calWeekStart(today), calWeekStart(clicked)) / 7);
+        } else {
+          opts.state.mode = 'month';
+          opts.state.offset = (y*12+m) - (today.getFullYear()*12+today.getMonth());
+        }
+        closePop();
+        opts.onApply();
+      }
+    });
 
     function positionPopover(){
       var rect = trigger.getBoundingClientRect();
