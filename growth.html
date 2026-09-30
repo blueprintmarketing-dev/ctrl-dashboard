@@ -677,18 +677,32 @@
 
       var nav = btn.getAttribute('data-nav');
       if(nav === 'prev' || nav === 'next'){
+        // Paging by month is itself the action, in every pick-mode — carry
+        // the currently selected day/week/month over into the new month
+        // (same day-of-month, clamped) and apply immediately, live, on
+        // every arrow press, without closing.
+        var today = todayMid();
+        var cur = selectedRange().start;
+
         if(nav === 'prev'){ browse.month -= 1; if(browse.month < 0){ browse.month = 11; browse.year -= 1; } }
         else { browse.month += 1; if(browse.month > 11){ browse.month = 0; browse.year += 1; } }
-        // Browsing by month while in MONTH pick-mode IS the selection —
-        // apply it live on every arrow press, without closing, so paging
-        // through months shows each one's data immediately.
-        if(pickMode === 'month'){
-          var today = todayMid();
+
+        var daysInTargetMonth = new Date(browse.year, browse.month + 1, 0).getDate();
+        var shifted = new Date(browse.year, browse.month, Math.min(cur.getDate(), daysInTargetMonth));
+
+        if(pickMode === 'day'){
+          opts.state.mode = 'day';
+          opts.state.offset = calDaysBetween(today, shifted);
+        } else if(pickMode === 'week'){
+          opts.state.mode = 'week';
+          opts.state.offset = Math.round(calDaysBetween(calWeekStart(today), calWeekStart(shifted)) / 7);
+        } else {
           opts.state.mode = 'month';
           opts.state.offset = (browse.year*12+browse.month) - (today.getFullYear()*12+today.getMonth());
         }
+
         render(); positionPopover();
-        if(pickMode === 'month') opts.onApply();
+        opts.onApply();
         return;
       }
       if(nav === 'today'){
