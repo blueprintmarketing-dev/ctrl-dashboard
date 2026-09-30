@@ -682,11 +682,13 @@ async function computeCallsSummary(startStr, endStr) {
   const pickupRate = made > 0 ? (pickedUp / made) * 100 : 0;
   const connectRate = pickedUp > 0 ? (connected / pickedUp) * 100 : 0;
 
-  // Booking rate: appointments landed on the calendar in this same window,
-  // as a share of calls made — "of the calls I dialed, how many turned into
-  // a booked appointment."
+  // Booking rate: of the leads actually called in this window, how many of
+  // THOSE SAME leads (matched by contactId) also got an appointment booked
+  // in this window — not just any appointment that happened to land here.
+  const calledContactIds = new Set(outbound.map((m) => m.contactId).filter(Boolean));
   const events = await getCalendarEvents(key, rangeStart.getTime(), rangeEnd.getTime());
-  const booked = events.length;
+  const bookedFromCalls = events.filter((e) => e.contactId && calledContactIds.has(e.contactId));
+  const booked = bookedFromCalls.length;
   const bookingRate = made > 0 ? (booked / made) * 100 : 0;
 
   const fmt = fmtBusinessDate;
