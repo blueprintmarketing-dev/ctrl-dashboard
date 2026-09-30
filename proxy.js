@@ -575,7 +575,7 @@ function ghlGet(urlPath, key, version) {
  * to filter out instant hang-ups and voicemail bounces that technically
  * show as "completed" but weren't a real conversation.
  */
-const CALLS_CONNECT_THRESHOLD_SEC = 30;
+const CALLS_CONNECT_THRESHOLD_SEC = 20;
 
 async function getCallMessagesInRange(key, startIso, endIso) {
   const messages = [];
