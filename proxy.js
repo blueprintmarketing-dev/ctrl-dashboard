@@ -46,6 +46,60 @@ const MIME = {
   '.txt':  'text/plain; charset=utf-8'
 };
 
+/**
+ * Business timezone handling — the server (Render) runs in UTC, but the
+ * business operates on US Central time. Every "today / this week / this
+ * month" boundary must be computed in BUSINESS_TZ, not the server's local
+ * time, or anything after ~7pm Central gets attributed to the wrong day.
+ */
+const BUSINESS_TZ = 'America/Chicago';
+
+function tzParts(date) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, weekday: 'short'
+  });
+  const p = {};
+  fmt.formatToParts(date).forEach((x) => { p[x.type] = x.value; });
+  const WEEKDAYS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    year: parseInt(p.year, 10),
+    month: parseInt(p.month, 10), // 1-based
+    day: parseInt(p.day, 10),
+    hour: p.hour === '24' ? 0 : parseInt(p.hour, 10),
+    minute: parseInt(p.minute, 10),
+    second: parseInt(p.second, 10),
+    weekday: WEEKDAYS[p.weekday]
+  };
+}
+
+// Convert a Y-M-D-H-M-S wall-clock time IN BUSINESS_TZ to the correct UTC instant.
+function zonedToUtc(y, mo, d, hh, mm, ss) {
+  hh = hh || 0; mm = mm || 0; ss = ss || 0;
+  const utcGuess = Date.UTC(y, mo - 1, d, hh, mm, ss);
+  const seen = tzParts(new Date(utcGuess));
+  const seenAsUtc = Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute, seen.second);
+  return new Date(utcGuess - (seenAsUtc - utcGuess));
+}
+
+function businessNow() {
+  return tzParts(new Date());
+}
+
+function businessMidnight(y, mo, d) {
+  return zonedToUtc(y, mo, d, 0, 0, 0);
+}
+
+function fmtBusinessDate(date) {
+  const p = tzParts(date);
+  const pad = (n) => (n < 10 ? '0' + n : '' + n);
+  return p.year + '-' + pad(p.month) + '-' + pad(p.day);
+}
+
+function daysInBusinessMonth(y, mo) {
+  return new Date(Date.UTC(y, mo, 0)).getUTCDate();
+}
+
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(status, {
@@ -241,11 +295,12 @@ async function computeFinanceSummary() {
   }
 
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
+  const nowParts = businessNow();
+  const startOfToday = businessMidnight(nowParts.year, nowParts.month, nowParts.day);
+  const startOfMonth = businessMidnight(nowParts.year, nowParts.month, 1);
+  const startOfLastMonth = businessMidnight(nowParts.year, nowParts.month - 1, 1);
+  const daysInMonth = daysInBusinessMonth(nowParts.year, nowParts.month);
+  const dayOfMonth = nowParts.day;
   const daysLeft = Math.max(daysInMonth - dayOfMonth, 0);
 
   const toSec = (d) => Math.floor(d.getTime() / 1000);
@@ -291,19 +346,20 @@ async function computeCashSummary(startStr, endStr) {
   }
 
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nowParts = businessNow();
+  const defaultStart = businessMidnight(nowParts.year, nowParts.month, 1);
+  const defaultEnd = businessMidnight(nowParts.year, nowParts.month + 1, 1);
 
   const rangeStart = parseDateParam(startStr, defaultStart);
   let rangeEnd = parseDateParam(endStr, null);
-  rangeEnd = rangeEnd ? new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate() + 1) : defaultEnd;
+  rangeEnd = rangeEnd ? addBusinessDays(rangeEnd, 1) : defaultEnd;
 
   const toSec = (d) => Math.floor(d.getTime() / 1000);
   const charges = await getChargesInRange(key, toSec(rangeStart), toSec(rangeEnd));
   const collected = netCollected(charges);
 
-  const fmt = (d) => d.toISOString().slice(0, 10);
-  const inclusiveEnd = new Date(rangeEnd.getTime() - 86400000);
+  const fmt = fmtBusinessDate;
+  const inclusiveEnd = addBusinessDays(rangeEnd, -1);
 
   return {
     syncedAt: now.toISOString(),
@@ -502,7 +558,7 @@ async function computeMrrSummary(asOfStr) {
     });
   });
 
-  const fmt = (d) => d.toISOString().slice(0, 10);
+  const fmt = fmtBusinessDate;
 
   return {
     syncedAt: now.toISOString(),
@@ -600,11 +656,12 @@ async function computeCallsSummary(startStr, endStr) {
   }
 
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nowParts = businessNow();
+  const defaultStart = businessMidnight(nowParts.year, nowParts.month, 1);
+  const defaultEnd = businessMidnight(nowParts.year, nowParts.month + 1, 1);
   const rangeStart = parseDateParam(startStr, defaultStart);
   let rangeEnd = parseDateParam(endStr, null);
-  rangeEnd = rangeEnd ? new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate() + 1) : defaultEnd;
+  rangeEnd = rangeEnd ? addBusinessDays(rangeEnd, 1) : defaultEnd;
 
   const startIso = rangeStart.toISOString();
   const endIso = new Date(rangeEnd.getTime() - 1).toISOString();
@@ -632,8 +689,8 @@ async function computeCallsSummary(startStr, endStr) {
   const booked = events.length;
   const bookingRate = made > 0 ? (booked / made) * 100 : 0;
 
-  const fmt = (d) => d.toISOString().slice(0, 10);
-  const inclusiveEnd = new Date(rangeEnd.getTime() - 86400000);
+  const fmt = fmtBusinessDate;
+  const inclusiveEnd = addBusinessDays(rangeEnd, -1);
 
   return {
     syncedAt: now.toISOString(),
@@ -731,8 +788,16 @@ async function getClosedOpportunities(key) {
 
 function parseDateParam(str, fallback) {
   if (!str) return fallback;
-  const d = new Date(str + 'T00:00:00');
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+  if (!m) return fallback;
+  const d = businessMidnight(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10));
   return isNaN(d.getTime()) ? fallback : d;
+}
+
+// Add n calendar days (in business-tz terms) to a business-midnight-aligned Date.
+function addBusinessDays(date, n) {
+  const p = tzParts(date);
+  return businessMidnight(p.year, p.month, p.day + n);
 }
 
 async function computeBookingSummary(startStr, endStr) {
@@ -742,14 +807,15 @@ async function computeBookingSummary(startStr, endStr) {
   }
 
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nowParts = businessNow();
+  const defaultStart = businessMidnight(nowParts.year, nowParts.month, 1);
+  const defaultEnd = businessMidnight(nowParts.year, nowParts.month + 1, 1);
 
   const rangeStart = parseDateParam(startStr, defaultStart);
   // "end" is inclusive as given (e.g. 2026-08-31); internally we use an
   // exclusive upper bound one day later.
   let rangeEnd = parseDateParam(endStr, null);
-  rangeEnd = rangeEnd ? new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate() + 1) : defaultEnd;
+  rangeEnd = rangeEnd ? addBusinessDays(rangeEnd, 1) : defaultEnd;
 
   const events = await getCalendarEvents(key, rangeStart.getTime(), rangeEnd.getTime());
 
@@ -774,8 +840,8 @@ async function computeBookingSummary(startStr, endStr) {
   const showRate = booked > 0 ? (taken / booked) * 100 : 0;
   const closeRate = taken > 0 ? (closes / taken) * 100 : 0;
 
-  const fmt = (d) => d.toISOString().slice(0, 10);
-  const inclusiveEnd = new Date(rangeEnd.getTime() - 86400000);
+  const fmt = fmtBusinessDate;
+  const inclusiveEnd = addBusinessDays(rangeEnd, -1);
 
   return {
     syncedAt: now.toISOString(),
