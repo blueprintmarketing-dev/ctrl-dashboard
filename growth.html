@@ -676,13 +676,20 @@
       }
 
       var nav = btn.getAttribute('data-nav');
-      if(nav === 'prev'){
-        browse.month -= 1; if(browse.month < 0){ browse.month = 11; browse.year -= 1; }
-        render(); positionPopover(); return;
-      }
-      if(nav === 'next'){
-        browse.month += 1; if(browse.month > 11){ browse.month = 0; browse.year += 1; }
-        render(); positionPopover(); return;
+      if(nav === 'prev' || nav === 'next'){
+        if(nav === 'prev'){ browse.month -= 1; if(browse.month < 0){ browse.month = 11; browse.year -= 1; } }
+        else { browse.month += 1; if(browse.month > 11){ browse.month = 0; browse.year += 1; } }
+        // Browsing by month while in MONTH pick-mode IS the selection —
+        // apply it live on every arrow press, without closing, so paging
+        // through months shows each one's data immediately.
+        if(pickMode === 'month'){
+          var today = todayMid();
+          opts.state.mode = 'month';
+          opts.state.offset = (browse.year*12+browse.month) - (today.getFullYear()*12+today.getMonth());
+        }
+        render(); positionPopover();
+        if(pickMode === 'month') opts.onApply();
+        return;
       }
       if(nav === 'today'){
         opts.state.mode = pickMode; opts.state.offset = 0;
