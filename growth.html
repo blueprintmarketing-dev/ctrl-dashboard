@@ -728,9 +728,13 @@
       e.stopPropagation();
       if(popover.classList.contains('open')) closePop(); else openPop();
     });
+    // Capture phase, not bubble — must run BEFORE the popover's own click
+    // handler can re-render (and thus detach) the clicked element, or this
+    // "outside click" check sees a stale target and closes the popover
+    // right after every segment/nav click inside it.
     document.addEventListener('click', function(e){
       if(popover.classList.contains('open') && !popover.contains(e.target) && e.target !== trigger) closePop();
-    });
+    }, true);
   }
 
   var bookingState = { mode: 'month', offset: 0 };
