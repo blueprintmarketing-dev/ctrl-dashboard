@@ -346,6 +346,10 @@
           <div class="funnel-stage-value" id="callsMadeValue">—</div>
         </div>
         <div class="funnel-stage">
+          <div class="funnel-stage-label">Unique Leads</div>
+          <div class="funnel-stage-value" id="callsUniqueLeadsValue">—</div>
+        </div>
+        <div class="funnel-stage">
           <div class="funnel-stage-label">Picked Up</div>
           <div class="funnel-stage-value" id="callsPickedUpValue">—</div>
         </div>
@@ -761,6 +765,7 @@
 
   function applyCallsData(data){
     document.getElementById('callsMadeValue').textContent = data.made;
+    document.getElementById('callsUniqueLeadsValue').textContent = data.uniqueLeadsContacted;
     document.getElementById('callsPickedUpValue').textContent = data.pickedUp;
     document.getElementById('callsConnectedValue').textContent = data.connected;
     document.getElementById('callsPickupRate').textContent = data.pickupRate.toFixed(1) + '%';

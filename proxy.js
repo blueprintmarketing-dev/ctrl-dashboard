@@ -613,6 +613,7 @@ async function computeCallsSummary(startStr, endStr) {
   const outbound = messages.filter((m) => m.direction === 'outbound');
 
   const made = outbound.length;
+  const uniqueLeadsContacted = new Set(outbound.map((m) => m.contactId)).size;
   const pickedUpList = outbound.filter((m) => m.status === 'completed');
   const connectedList = pickedUpList.filter((m) => {
     const dur = (m.meta && m.meta.call && typeof m.meta.call.duration === 'number') ? m.meta.call.duration : null;
@@ -639,6 +640,7 @@ async function computeCallsSummary(startStr, endStr) {
     start: fmt(rangeStart),
     end: fmt(inclusiveEnd),
     made: made,
+    uniqueLeadsContacted: uniqueLeadsContacted,
     pickedUp: pickedUp,
     connected: connected,
     pickupRate: pickupRate,
